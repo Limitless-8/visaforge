@@ -55,13 +55,8 @@ REQUIRED_PROFILE_FIELDS: tuple[str, ...] = (
     "full_name",
     "nationality",
     "country_of_residence",
-    "passport_valid_until",
-    "education_level",
     "destination_country",
     "intended_degree_level",
-    "field_of_study",
-    "offer_letter_status",
-    "proof_of_funds_status",
 )
 
 
