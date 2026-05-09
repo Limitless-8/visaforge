@@ -1,0 +1,236 @@
+{
+  "_meta": {
+    "description": "Deterministic rule set for student visa eligibility. NOT legal advice. Reflects publicly documented requirements as of the MVP snapshot; intended to be refreshed via the policy ingestion layer.",
+    "version": "0.3.0",
+    "changelog": [
+      "0.3.0: Rules enriched with priority (CRITICAL|IMPORTANT|OPTIONAL), why_it_matters, what_to_do, and estimated_time so the engine can emit actionable next steps.",
+      "0.2.0: Offer letter and proof-of-funds rules switched to evidence-status checks."
+    ]
+  },
+  "countries": {
+    "UK": {
+      "visa_name": "UK Student Visa (Route)",
+      "official_reference": "https://www.gov.uk/student-visa",
+      "rules": [
+        {
+          "id": "uk_passport_validity",
+          "description": "A valid passport is required.",
+          "field": "passport_valid_until",
+          "check": "non_empty_date",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["Valid passport"],
+          "why_it_matters": "Without a valid passport the visa application cannot be submitted or the visa sticker affixed.",
+          "what_to_do": "Renew your passport so it covers the full duration of your intended studies plus a buffer.",
+          "estimated_time": "2\u20138 weeks"
+        },
+        {
+          "id": "uk_offer_letter",
+          "description": "A Confirmation of Acceptance for Studies (CAS) from a licensed sponsor is required.",
+          "field": "offer_letter_status",
+          "check": "offer_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["CAS / unconditional offer letter"],
+          "why_it_matters": "The CAS is the single most important piece of evidence: the UKVI will not issue a Student visa without it.",
+          "what_to_do": "Secure an unconditional offer from a UKVI-licensed sponsor, then request your CAS reference.",
+          "estimated_time": "2\u20136 weeks after offer"
+        },
+        {
+          "id": "uk_proof_of_funds",
+          "description": "Proof of funds covering course fees and living costs.",
+          "field": "proof_of_funds_status",
+          "check": "funds_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "financial",
+          "evidence_required": [
+            "Bank statements showing required maintenance funds"
+          ],
+          "why_it_matters": "UKVI maintenance rules require funds to be held for 28 consecutive days before application.",
+          "what_to_do": "Prepare bank statements showing tuition + UKVI maintenance amounts held for 28+ days, or arrange an official sponsorship letter.",
+          "estimated_time": "4\u20138 weeks"
+        },
+        {
+          "id": "uk_english_language",
+          "description": "Secure English Language Test (SELT) evidence, typically IELTS UKVI with minimum CEFR B2 for degree-level study.",
+          "field": "english_test_score",
+          "check": "numeric_min",
+          "params": { "min_value": 5.5, "applies_if_field": "english_test_type" },
+          "weight": 0.8,
+          "priority": "CRITICAL",
+          "category": "language",
+          "evidence_required": ["IELTS UKVI / approved SELT certificate"],
+          "why_it_matters": "A valid SELT at the correct CEFR level is mandatory for most Student Route applicants.",
+          "what_to_do": "Book an approved SELT (e.g. IELTS UKVI) at a UKVI-approved centre and achieve the required overall/component scores.",
+          "estimated_time": "4\u201312 weeks"
+        },
+        {
+          "id": "uk_education_level",
+          "description": "Prior education should align with the intended course level.",
+          "field": "education_level",
+          "check": "non_empty_string",
+          "weight": 0.5,
+          "priority": "IMPORTANT",
+          "category": "academic",
+          "evidence_required": ["Transcripts / degree certificates"],
+          "why_it_matters": "Sponsors assess your academic record to decide whether you meet entry requirements.",
+          "what_to_do": "Gather official transcripts and certificates; obtain certified translations if not in English.",
+          "estimated_time": "1\u20133 weeks"
+        }
+      ]
+    },
+    "Canada": {
+      "visa_name": "Canada Study Permit",
+      "official_reference": "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit.html",
+      "rules": [
+        {
+          "id": "ca_passport_validity",
+          "description": "Valid passport covering the intended study period.",
+          "field": "passport_valid_until",
+          "check": "non_empty_date",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["Valid passport"],
+          "why_it_matters": "IRCC will not issue a study permit beyond your passport's validity.",
+          "what_to_do": "Renew your passport to cover the full program length plus buffer.",
+          "estimated_time": "2\u20138 weeks"
+        },
+        {
+          "id": "ca_dli_letter",
+          "description": "Letter of Acceptance from a Designated Learning Institution (DLI).",
+          "field": "offer_letter_status",
+          "check": "offer_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["Letter of Acceptance from DLI"],
+          "why_it_matters": "A Letter of Acceptance from a DLI is mandatory for the study permit application.",
+          "what_to_do": "Secure admission to a DLI listed on the IRCC DLI list and obtain the official LOA.",
+          "estimated_time": "2\u20136 weeks after offer"
+        },
+        {
+          "id": "ca_proof_of_funds",
+          "description": "Proof of sufficient funds for tuition and living costs.",
+          "field": "proof_of_funds_status",
+          "check": "funds_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "financial",
+          "evidence_required": [
+            "Bank statements / GIC / sponsorship documents"
+          ],
+          "why_it_matters": "IRCC requires demonstrable funds for tuition + first-year living costs for you and any accompanying dependents.",
+          "what_to_do": "Purchase a Guaranteed Investment Certificate (GIC) from a participating bank or prepare 4\u20136 months of bank statements.",
+          "estimated_time": "3\u20136 weeks"
+        },
+        {
+          "id": "ca_language",
+          "description": "Language proficiency is often required by institutions (IELTS 6.0 typical minimum).",
+          "field": "english_test_score",
+          "check": "numeric_min",
+          "params": { "min_value": 6.0, "applies_if_field": "english_test_type" },
+          "weight": 0.7,
+          "priority": "IMPORTANT",
+          "category": "language",
+          "evidence_required": ["IELTS / TOEFL / equivalent"],
+          "why_it_matters": "Most Canadian institutions require an English (or French) proficiency test for admission; it strengthens your study permit file.",
+          "what_to_do": "Book an IELTS (Academic) or TOEFL iBT and meet the target institution's minimum.",
+          "estimated_time": "4\u201312 weeks"
+        },
+        {
+          "id": "ca_education_level",
+          "description": "Academic record appropriate for the chosen program.",
+          "field": "education_level",
+          "check": "non_empty_string",
+          "weight": 0.5,
+          "priority": "IMPORTANT",
+          "category": "academic",
+          "evidence_required": ["Transcripts / diplomas"],
+          "why_it_matters": "Institutions and IRCC both look at prior education to assess fit and credibility.",
+          "what_to_do": "Collect official transcripts and diplomas; get notarised translations where required.",
+          "estimated_time": "1\u20133 weeks"
+        }
+      ]
+    },
+    "Germany": {
+      "visa_name": "Germany Student Visa (Visum zu Studienzwecken)",
+      "official_reference": "https://www.auswaertiges-amt.de/en/visa-service/-/231148",
+      "rules": [
+        {
+          "id": "de_passport_validity",
+          "description": "Valid passport.",
+          "field": "passport_valid_until",
+          "check": "non_empty_date",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["Valid passport"],
+          "why_it_matters": "German missions require a valid passport with sufficient remaining validity and blank pages.",
+          "what_to_do": "Renew or extend your passport so it is valid for the full initial visa period.",
+          "estimated_time": "2\u20138 weeks"
+        },
+        {
+          "id": "de_admission",
+          "description": "Admission letter (Zulassungsbescheid) from a recognised German HEI, or proof of application.",
+          "field": "offer_letter_status",
+          "check": "offer_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "documents",
+          "evidence_required": ["Zulassungsbescheid or conditional admission"],
+          "why_it_matters": "The Zulassungsbescheid is the central evidence for a student visa application; without it only a limited applicant visa is possible.",
+          "what_to_do": "Apply via uni-assist or direct to the HEI and secure the admission letter.",
+          "estimated_time": "6\u201316 weeks"
+        },
+        {
+          "id": "de_blocked_account",
+          "description": "Proof of financial resources, typically via a blocked account (Sperrkonto).",
+          "field": "proof_of_funds_status",
+          "check": "funds_status",
+          "weight": 1.0,
+          "priority": "CRITICAL",
+          "category": "financial",
+          "evidence_required": [
+            "Blocked account confirmation / scholarship / sponsorship letter"
+          ],
+          "why_it_matters": "German missions require documented financial resources (Finanzierungsnachweis) before issuing the visa.",
+          "what_to_do": "Open a blocked account with a recognised provider and deposit the annual minimum, or provide a formal scholarship/sponsorship.",
+          "estimated_time": "2\u20134 weeks"
+        },
+        {
+          "id": "de_language",
+          "description": "Language proficiency in German or English, depending on program.",
+          "field": "english_test_score",
+          "check": "numeric_min_or_na",
+          "params": { "min_value": 6.0, "applies_if_field": "english_test_type" },
+          "weight": 0.6,
+          "priority": "IMPORTANT",
+          "category": "language",
+          "evidence_required": [
+            "IELTS/TOEFL for English-taught programs, or TestDaF/DSH for German-taught programs"
+          ],
+          "why_it_matters": "Language proficiency is an admission requirement for the HEI and supports the visa case.",
+          "what_to_do": "Sit IELTS/TOEFL for English-taught programs, or TestDaF/DSH for German-taught programs.",
+          "estimated_time": "4\u201312 weeks"
+        },
+        {
+          "id": "de_education_level",
+          "description": "Recognised higher-education entrance qualification (Hochschulzugangsberechtigung).",
+          "field": "education_level",
+          "check": "non_empty_string",
+          "weight": 0.6,
+          "priority": "IMPORTANT",
+          "category": "academic",
+          "evidence_required": ["Secondary school / prior degree certificates"],
+          "why_it_matters": "Your prior qualifications must be recognised as a Hochschulzugangsberechtigung for the chosen program.",
+          "what_to_do": "Check recognition on anabin.kmk.org and gather certified copies of your certificates and transcripts.",
+          "estimated_time": "2\u20134 weeks"
+        }
+      ]
+    }
+  }
+}

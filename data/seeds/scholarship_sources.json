@@ -1,0 +1,195 @@
+{
+  "_meta": {
+    "description": "Curated source registry for VisaForge's controlled refresh system. Each source is an approved root that the crawl orchestrator may follow, bounded by allowed_domains, follow_keywords, block_keywords, and max_depth. Pakistan-focused: follow_keywords prioritise Pakistani-applicable pages.",
+    "version": "0.9.0",
+    "audience": "Pakistani students primarily; widens to broader audiences as later versions add other nationality groups."
+  },
+  "sources": [
+    {
+      "name": "Chevening",
+      "provider": "UK Foreign, Commonwealth & Development Office",
+      "destination_country": "UK",
+      "base_url": "https://www.chevening.org",
+      "start_urls": [
+        "https://www.chevening.org/scholarship/",
+        "https://www.chevening.org/scholarship/pakistan/",
+        "https://www.chevening.org/apply/"
+      ],
+      "allowed_domains": ["chevening.org"],
+      "follow_keywords": [
+        "Pakistan", "Pakistani", "eligibility", "eligible", "apply",
+        "application", "timeline", "deadline", "reference",
+        "work experience", "required documents", "country page",
+        "scholarship"
+      ],
+      "block_keywords": [
+        "news", "blog", "about", "privacy", "cookies", "media",
+        "annual report", "contact", "events", "alumni stories",
+        "press release"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_program",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "Commonwealth Scholarship Commission",
+      "provider": "Commonwealth Scholarship Commission in the UK",
+      "destination_country": "UK",
+      "base_url": "https://cscuk.fcdo.gov.uk",
+      "start_urls": [
+        "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
+        "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-phd-scholarships/"
+      ],
+      "allowed_domains": ["cscuk.fcdo.gov.uk"],
+      "follow_keywords": [
+        "Pakistan", "Pakistani", "eligibility", "apply", "deadline",
+        "candidate", "country", "developing", "low income",
+        "middle income", "required documents", "timeline"
+      ],
+      "block_keywords": [
+        "news", "blog", "about", "privacy", "cookies", "media",
+        "annual report", "events", "contact", "alumni"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_program",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "GREAT Scholarships (British Council)",
+      "provider": "British Council & participating UK universities",
+      "destination_country": "UK",
+      "base_url": "https://study-uk.britishcouncil.org",
+      "start_urls": [
+        "https://study-uk.britishcouncil.org/scholarships/great-scholarships",
+        "https://study-uk.britishcouncil.org/scholarships/great-scholarships/pakistan"
+      ],
+      "allowed_domains": ["study-uk.britishcouncil.org"],
+      "follow_keywords": [
+        "Pakistan", "scholarship", "eligibility", "apply",
+        "deadline", "country", "value", "subject"
+      ],
+      "block_keywords": [
+        "news", "blog", "press", "events", "privacy", "cookies",
+        "social", "alumni"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_directory",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "EduCanada",
+      "provider": "Government of Canada",
+      "destination_country": "Canada",
+      "base_url": "https://www.educanada.ca",
+      "start_urls": [
+        "https://www.educanada.ca/scholarships-bourses/index.aspx?lang=eng"
+      ],
+      "allowed_domains": ["educanada.ca"],
+      "follow_keywords": [
+        "scholarship", "bourses", "eligibility", "apply",
+        "international", "graduate", "doctoral", "country",
+        "Pakistan"
+      ],
+      "block_keywords": [
+        "news", "press", "media", "privacy", "cookies", "contact",
+        "minister", "speech"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_directory",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "Vanier Canada Graduate Scholarships",
+      "provider": "Government of Canada",
+      "destination_country": "Canada",
+      "base_url": "https://vanier.gc.ca",
+      "start_urls": [
+        "https://vanier.gc.ca/en/home-accueil.html",
+        "https://vanier.gc.ca/en/eligibility-admissibilite.html"
+      ],
+      "allowed_domains": ["vanier.gc.ca"],
+      "follow_keywords": [
+        "eligibility", "apply", "deadline", "doctoral", "PhD",
+        "value", "selection", "international"
+      ],
+      "block_keywords": [
+        "news", "media", "press", "privacy", "cookies", "contact"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_program",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "DAAD Scholarship Database",
+      "provider": "German Academic Exchange Service (DAAD)",
+      "destination_country": "Germany",
+      "base_url": "https://www2.daad.de",
+      "start_urls": [
+        "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/"
+      ],
+      "allowed_domains": ["daad.de", "www2.daad.de"],
+      "follow_keywords": [
+        "scholarship", "stipendium", "eligibility", "apply",
+        "international", "Pakistan", "Master", "PhD",
+        "research grant"
+      ],
+      "block_keywords": [
+        "news", "blog", "press", "events", "privacy", "cookies",
+        "imprint", "contact"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_directory",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "DAAD Study Scholarships (Masters)",
+      "provider": "German Academic Exchange Service (DAAD)",
+      "destination_country": "Germany",
+      "base_url": "https://www.daad.de",
+      "start_urls": [
+        "https://www.daad.de/en/study-and-research-in-germany/scholarships/"
+      ],
+      "allowed_domains": ["daad.de", "www.daad.de"],
+      "follow_keywords": [
+        "scholarship", "eligibility", "apply", "Master", "PhD",
+        "international", "Pakistan", "deadline", "documents"
+      ],
+      "block_keywords": [
+        "news", "blog", "press", "events", "privacy", "cookies",
+        "imprint", "contact"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_program",
+      "is_active": true,
+      "requires_admin_review": true
+    },
+    {
+      "name": "Deutschlandstipendium",
+      "provider": "Federal Ministry of Education and Research, Germany",
+      "destination_country": "Germany",
+      "base_url": "https://www.deutschlandstipendium.de",
+      "start_urls": [
+        "https://www.deutschlandstipendium.de/en/"
+      ],
+      "allowed_domains": ["deutschlandstipendium.de"],
+      "follow_keywords": [
+        "scholarship", "stipend", "eligibility", "apply",
+        "international", "students", "amount", "selection"
+      ],
+      "block_keywords": [
+        "news", "blog", "press", "privacy", "cookies", "imprint",
+        "contact", "events"
+      ],
+      "max_depth": 2,
+      "source_type": "scholarship_program",
+      "is_active": true,
+      "requires_admin_review": true
+    }
+  ]
+}

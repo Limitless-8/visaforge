@@ -1,0 +1,48 @@
+"""Reusable UI components for VisaForge."""
+from .ui import (
+    page_header,
+    disclaimer,
+    ensure_profile_selected,
+    require_profile,
+    require_auth,
+    require_admin,
+    require_user,
+    require_stage,
+    render_sidebar,
+    freshness_label,
+    section_card,
+    DISCLAIMER_TEXT,
+)
+from .badges import (
+    eligibility_badge,
+    decision_badge,
+    step_badge,
+    credibility_badge,
+    outcome_badge,
+    priority_badge,
+    match_badge,
+    render_badge,
+)
+
+__all__ = [
+    "page_header",
+    "disclaimer",
+    "ensure_profile_selected",
+    "require_profile",
+    "require_auth",
+    "require_admin",
+    "require_user",
+    "require_stage",
+    "render_sidebar",
+    "freshness_label",
+    "section_card",
+    "DISCLAIMER_TEXT",
+    "eligibility_badge",
+    "decision_badge",
+    "step_badge",
+    "credibility_badge",
+    "outcome_badge",
+    "priority_badge",
+    "match_badge",
+    "render_badge",
+]

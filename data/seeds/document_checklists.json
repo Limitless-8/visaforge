@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "description": "Country-specific document checklist seeds. Each item is a suggested document type; users track status per item."
+  },
+  "checklists": {
+    "UK": [
+      "Valid passport",
+      "CAS (Confirmation of Acceptance for Studies)",
+      "Academic transcripts & certificates",
+      "IELTS UKVI / approved SELT certificate",
+      "Proof of funds (bank statements)",
+      "Tuberculosis (TB) test certificate (if required)",
+      "ATAS certificate (for certain subjects)",
+      "Passport-size photographs",
+      "Parental consent (if under 18)"
+    ],
+    "Canada": [
+      "Valid passport",
+      "Letter of Acceptance from DLI",
+      "Provincial Attestation Letter (PAL/TAL)",
+      "Proof of funds (GIC, bank statements)",
+      "Language test (IELTS/TOEFL)",
+      "Academic transcripts",
+      "Statement of Purpose",
+      "Medical exam certificate (if required)",
+      "Digital photo",
+      "Police certificate (if required)"
+    ],
+    "Germany": [
+      "Valid passport",
+      "Admission letter (Zulassungsbescheid)",
+      "Blocked account confirmation (Sperrkonto)",
+      "Health insurance proof",
+      "Academic transcripts & certificates",
+      "Language proficiency certificate (IELTS/TOEFL or TestDaF/DSH)",
+      "Motivation letter",
+      "CV",
+      "Biometric photos",
+      "Visa application form (VIDEX)"
+    ]
+  }
+}

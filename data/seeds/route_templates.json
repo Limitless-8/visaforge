@@ -1,0 +1,199 @@
+{
+  "_meta": {
+    "description": "Deterministic workflow templates per destination country. Each step has a key, title, description, and dependencies. Statuses are assigned at runtime based on profile + eligibility."
+  },
+  "templates": {
+    "UK": {
+      "template_key": "uk_student_v1",
+      "title": "UK Student Visa Pathway",
+      "steps": [
+        {
+          "key": "passport_ready",
+          "title": "Confirm passport validity",
+          "description": "Ensure your passport is valid for the duration of your intended studies.",
+          "depends_on": []
+        },
+        {
+          "key": "offer_letter",
+          "title": "Secure CAS / unconditional offer",
+          "description": "Obtain a Confirmation of Acceptance for Studies (CAS) from a licensed UK sponsor.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "language_cert",
+          "title": "Complete English language test (SELT)",
+          "description": "Take an approved Secure English Language Test such as IELTS UKVI.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "financial_proof",
+          "title": "Prepare proof of funds",
+          "description": "Assemble bank statements or sponsorship evidence meeting UKVI maintenance thresholds.",
+          "depends_on": ["offer_letter"]
+        },
+        {
+          "key": "tb_test",
+          "title": "TB test (if required for your nationality)",
+          "description": "Some nationalities require a tuberculosis test from an approved clinic.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "document_checklist",
+          "title": "Complete document checklist",
+          "description": "Gather all documents required for the Student Route application.",
+          "depends_on": ["offer_letter", "financial_proof", "language_cert"]
+        },
+        {
+          "key": "visa_application",
+          "title": "Fill visa application & pay IHS/fees",
+          "description": "Complete the online application, pay the visa fee and the Immigration Health Surcharge.",
+          "depends_on": ["document_checklist"]
+        },
+        {
+          "key": "biometrics",
+          "title": "Book biometrics appointment",
+          "description": "Attend a VFS/visa application centre appointment for biometrics.",
+          "depends_on": ["visa_application"]
+        },
+        {
+          "key": "submission",
+          "title": "Submit application",
+          "description": "Submit all documents and complete the application.",
+          "depends_on": ["biometrics"]
+        },
+        {
+          "key": "tracking",
+          "title": "Track decision",
+          "description": "Monitor the application status and respond to any requests.",
+          "depends_on": ["submission"]
+        }
+      ]
+    },
+    "Canada": {
+      "template_key": "ca_study_permit_v1",
+      "title": "Canada Study Permit Pathway",
+      "steps": [
+        {
+          "key": "passport_ready",
+          "title": "Confirm passport validity",
+          "description": "Passport should remain valid for the duration of study.",
+          "depends_on": []
+        },
+        {
+          "key": "dli_offer",
+          "title": "Obtain Letter of Acceptance (DLI)",
+          "description": "Secure acceptance from a Designated Learning Institution.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "language_cert",
+          "title": "Complete language proficiency test",
+          "description": "Most institutions require IELTS, TOEFL, or equivalent.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "pal_letter",
+          "title": "Provincial Attestation Letter (PAL) if applicable",
+          "description": "Most study permit applications now require a PAL/TAL from the province.",
+          "depends_on": ["dli_offer"]
+        },
+        {
+          "key": "financial_proof",
+          "title": "Prepare proof of funds (GIC / statements)",
+          "description": "Show sufficient funds for tuition and living costs, typically via a GIC or bank statements.",
+          "depends_on": ["dli_offer"]
+        },
+        {
+          "key": "medical_exam",
+          "title": "Complete medical exam (if required)",
+          "description": "An IRCC-approved panel physician may be required depending on nationality and stay length.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "document_checklist",
+          "title": "Complete document checklist",
+          "description": "Assemble all required documents for the IRCC online application.",
+          "depends_on": ["dli_offer", "financial_proof", "language_cert"]
+        },
+        {
+          "key": "visa_application",
+          "title": "Submit study permit application online",
+          "description": "Apply via the IRCC online portal and pay fees.",
+          "depends_on": ["document_checklist"]
+        },
+        {
+          "key": "biometrics",
+          "title": "Provide biometrics",
+          "description": "Attend a VAC for fingerprints and photo.",
+          "depends_on": ["visa_application"]
+        },
+        {
+          "key": "tracking",
+          "title": "Track decision",
+          "description": "Monitor the application and respond to additional requests.",
+          "depends_on": ["biometrics"]
+        }
+      ]
+    },
+    "Germany": {
+      "template_key": "de_student_visa_v1",
+      "title": "Germany Student Visa Pathway",
+      "steps": [
+        {
+          "key": "passport_ready",
+          "title": "Confirm passport validity",
+          "description": "Passport should be valid and have blank pages.",
+          "depends_on": []
+        },
+        {
+          "key": "admission",
+          "title": "Obtain admission (Zulassungsbescheid)",
+          "description": "Secure admission or conditional admission from a recognised German HEI.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "language_cert",
+          "title": "Complete language proficiency test",
+          "description": "TestDaF/DSH for German programs or IELTS/TOEFL for English programs.",
+          "depends_on": ["passport_ready"]
+        },
+        {
+          "key": "blocked_account",
+          "title": "Open blocked account (Sperrkonto)",
+          "description": "Deposit the required amount into a blocked account to satisfy financial proof.",
+          "depends_on": ["admission"]
+        },
+        {
+          "key": "health_insurance",
+          "title": "Arrange health insurance",
+          "description": "Obtain travel/health insurance valid in Germany for the initial period.",
+          "depends_on": ["admission"]
+        },
+        {
+          "key": "document_checklist",
+          "title": "Complete document checklist",
+          "description": "Assemble all documents for the embassy appointment.",
+          "depends_on": ["admission", "blocked_account", "language_cert"]
+        },
+        {
+          "key": "embassy_appointment",
+          "title": "Book embassy/consulate appointment",
+          "description": "Schedule your visa appointment at the German mission.",
+          "depends_on": ["document_checklist"]
+        },
+        {
+          "key": "submission",
+          "title": "Attend appointment & submit application",
+          "description": "Attend the visa interview and submit all required documents.",
+          "depends_on": ["embassy_appointment"]
+        },
+        {
+          "key": "tracking",
+          "title": "Track decision",
+          "description": "Await processing and respond to any further requests.",
+          "depends_on": ["submission"]
+        }
+      ]
+    }
+  }
+}

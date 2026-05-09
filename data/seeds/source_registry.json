@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "description": "Curated registry of credible scholarship & policy sources. Only official government, official education, and highly credible institutional sources. Respect each site's robots.txt and terms of use.",
+    "version": "0.1.0"
+  },
+  "sources": [
+    {
+      "name": "GOV.UK — Student Visa",
+      "url": "https://www.gov.uk/student-visa",
+      "country": "UK",
+      "category": "policy",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "British Council — Study UK Scholarships",
+      "url": "https://study-uk.britishcouncil.org/scholarships",
+      "country": "UK",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "Chevening Scholarships",
+      "url": "https://www.chevening.org/scholarship/",
+      "country": "UK",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "Commonwealth Scholarship Commission",
+      "url": "https://cscuk.fcdo.gov.uk/scholarships/",
+      "country": "UK",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "UKCISA — Funding your studies",
+      "url": "https://www.ukcisa.org.uk/Information--Advice/Fees-and-Money/Sources-of-funding",
+      "country": "UK",
+      "category": "scholarship",
+      "credibility": "institutional",
+      "active": true
+    },
+    {
+      "name": "Government of Canada — Study Permit",
+      "url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit.html",
+      "country": "Canada",
+      "category": "policy",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "EduCanada — Scholarships",
+      "url": "https://www.educanada.ca/scholarships-bourses/index.aspx?lang=eng",
+      "country": "Canada",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "Global Affairs Canada — International Scholarships",
+      "url": "https://www.international.gc.ca/education/scholarships-bourses-eng.aspx",
+      "country": "Canada",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "DAAD — Scholarships (English)",
+      "url": "https://www.daad.de/en/study-and-research-in-germany/scholarships/",
+      "country": "Germany",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "DAAD — Scholarship Database",
+      "url": "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/",
+      "country": "Germany",
+      "category": "scholarship",
+      "credibility": "official",
+      "active": true
+    },
+    {
+      "name": "Federal Foreign Office — Study Visa",
+      "url": "https://www.auswaertiges-amt.de/en/visa-service/-/231148",
+      "country": "Germany",
+      "category": "policy",
+      "credibility": "official",
+      "active": true
+    }
+  ]
+}

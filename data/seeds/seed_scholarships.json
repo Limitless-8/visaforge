@@ -1,0 +1,279 @@
+{
+  "_meta": {
+    "description": "Offline-safe curated scholarship seeds. These point to real, publicly documented opportunities with links to their official source pages. Deadlines are intentionally left null where they change yearly. The live ingestion layer may enrich them. Never hallucinate; always link out to the source of truth.",
+    "version": "0.2.0",
+    "changelog": [
+      "0.2.0: Added structured `eligibility` block for each entry so the matching engine can score profiles deterministically."
+    ]
+  },
+  "entries": [
+    {
+      "title": "Chevening Scholarships",
+      "provider": "UK Foreign, Commonwealth & Development Office",
+      "country": "UK",
+      "degree_level": "Masters",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "Fully-funded UK government scholarships for future leaders to pursue a one-year master's at any UK university. Covers tuition, living expenses, travel, and more.",
+      "source_url": "https://www.chevening.org/scholarship/",
+      "source_name": "Chevening",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "UK",
+        "eligible_nationalities": "chevening_eligible",
+        "excluded_nationalities": ["British"],
+        "degree_levels": ["Masters"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.5,
+        "requires_offer": false,
+        "requires_funds": false,
+        "min_work_experience_years": 2,
+        "notes": "Requires two years of work experience and leadership potential. Candidates apply before receiving offers."
+      }
+    },
+    {
+      "title": "Commonwealth Master's Scholarships",
+      "provider": "Commonwealth Scholarship Commission in the UK",
+      "country": "UK",
+      "degree_level": "Masters",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "For candidates from eligible low and middle income Commonwealth countries to undertake one-year taught master's study in the UK.",
+      "source_url": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
+      "source_name": "Commonwealth Scholarship Commission",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "UK",
+        "eligible_nationalities": "commonwealth_lmic",
+        "degree_levels": ["Masters"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.5,
+        "requires_offer": false,
+        "requires_funds": false,
+        "notes": "For candidates unable to self-fund; demonstrated financial need is part of the assessment."
+      }
+    },
+    {
+      "title": "Commonwealth PhD Scholarships",
+      "provider": "Commonwealth Scholarship Commission in the UK",
+      "country": "UK",
+      "degree_level": "PhD",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "For PhD study in the UK for candidates from eligible Commonwealth countries. Covers airfares, tuition, and living allowance.",
+      "source_url": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-phd-scholarships/",
+      "source_name": "Commonwealth Scholarship Commission",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "UK",
+        "eligible_nationalities": "commonwealth_lmic",
+        "degree_levels": ["PhD"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.3,
+        "min_ielts": 6.5,
+        "requires_offer": false,
+        "requires_funds": false
+      }
+    },
+    {
+      "title": "GREAT Scholarships",
+      "provider": "British Council & participating UK universities",
+      "country": "UK",
+      "degree_level": "Masters",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "Partnership between the UK government's GREAT Britain Campaign, British Council, and UK higher education institutions offering £10,000+ scholarships.",
+      "source_url": "https://study-uk.britishcouncil.org/scholarships/great-scholarships",
+      "source_name": "British Council Study UK",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "UK",
+        "eligible_nationalities": [
+          "Bangladeshi", "Chinese", "Egyptian", "Ghanaian", "Greek", "Indian",
+          "Indonesian", "Kenyan", "Malaysian", "Mexican", "Nepali", "Nigerian",
+          "Pakistani", "Filipino", "Qatari", "South African", "Sri Lankan",
+          "Thai", "Turkish", "Vietnamese"
+        ],
+        "degree_levels": ["Masters"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.0,
+        "requires_offer": true,
+        "requires_funds": false,
+        "notes": "Participating university and subject vary each year — check the official list before applying."
+      }
+    },
+    {
+      "title": "Vanier Canada Graduate Scholarships",
+      "provider": "Government of Canada",
+      "country": "Canada",
+      "degree_level": "PhD",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "Scholarships of CAD 50,000 per year for three years for doctoral students studying at Canadian institutions, in health research, natural sciences/engineering, or social sciences/humanities.",
+      "source_url": "https://vanier.gc.ca/en/home-accueil.html",
+      "source_name": "Government of Canada",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Canada",
+        "eligible_nationalities": "any",
+        "degree_levels": ["PhD"],
+        "fields_of_study": [
+          "Medicine",
+          "Engineering",
+          "Computer Science",
+          "Data Science",
+          "Artificial Intelligence",
+          "Environmental Science",
+          "Social Sciences",
+          "Psychology",
+          "Education",
+          "Arts and Design"
+        ],
+        "min_gpa_4": 3.5,
+        "min_ielts": 6.5,
+        "requires_offer": true,
+        "requires_funds": false,
+        "notes": "Nominated by the Canadian institution; cannot apply directly to the program."
+      }
+    },
+    {
+      "title": "Banting Postdoctoral Fellowships",
+      "provider": "Government of Canada",
+      "country": "Canada",
+      "degree_level": "Postdoctoral",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "CAD 70,000 per year for two years for postdoctoral researchers at Canadian host institutions across the three federal research agencies' disciplines.",
+      "source_url": "https://banting.fellowships-bourses.gc.ca/en/home-accueil.html",
+      "source_name": "Government of Canada",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Canada",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Postdoctoral"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.5,
+        "min_ielts": 6.5,
+        "requires_offer": true,
+        "requires_funds": false
+      }
+    },
+    {
+      "title": "Canada Graduate Scholarships — Master's (CGS M)",
+      "provider": "Government of Canada",
+      "country": "Canada",
+      "degree_level": "Masters",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "CAD 27,000 for one year for students pursuing a research-based master's at participating Canadian institutions.",
+      "source_url": "https://www.nserc-crsng.gc.ca/Students-Etudiants/PG-CS/CGSM-BESCM_eng.asp",
+      "source_name": "NSERC / Government of Canada",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Canada",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Masters"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.3,
+        "min_ielts": 6.5,
+        "requires_offer": true,
+        "requires_funds": false,
+        "notes": "Application is via the intended Canadian host institution."
+      }
+    },
+    {
+      "title": "DAAD Scholarships for International Students",
+      "provider": "German Academic Exchange Service (DAAD)",
+      "country": "Germany",
+      "degree_level": null,
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "The DAAD scholarship database lists funding opportunities for international students, graduates, and researchers from all academic disciplines.",
+      "source_url": "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/",
+      "source_name": "DAAD",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Germany",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Masters", "PhD", "Postdoctoral"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.0,
+        "requires_offer": false,
+        "requires_funds": false,
+        "notes": "The DAAD database contains many programmes; terms vary per programme."
+      }
+    },
+    {
+      "title": "DAAD Study Scholarships — Masters",
+      "provider": "German Academic Exchange Service (DAAD)",
+      "country": "Germany",
+      "degree_level": "Masters",
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "Monthly stipends for graduates of all disciplines to pursue a postgraduate or master's degree at a state or state-recognised German university.",
+      "source_url": "https://www.daad.de/en/study-and-research-in-germany/scholarships/",
+      "source_name": "DAAD",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Germany",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Masters"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.0,
+        "requires_offer": false,
+        "requires_funds": false
+      }
+    },
+    {
+      "title": "Deutschlandstipendium",
+      "provider": "Federal Ministry of Education and Research, Germany",
+      "country": "Germany",
+      "degree_level": null,
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "€300 per month scholarship supporting talented students at German universities, funded jointly by the federal government and private sponsors.",
+      "source_url": "https://www.deutschlandstipendium.de/en/",
+      "source_name": "Deutschlandstipendium",
+      "credibility": "official",
+      "eligibility": {
+        "destination_country": "Germany",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Bachelor's", "Masters", "PhD"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.3,
+        "min_ielts": 6.0,
+        "requires_offer": true,
+        "requires_funds": false,
+        "notes": "Application is made at the participating German university after admission."
+      }
+    },
+    {
+      "title": "Heinrich Böll Foundation Scholarships",
+      "provider": "Heinrich Böll Stiftung",
+      "country": "Germany",
+      "degree_level": null,
+      "field_of_study": null,
+      "deadline": null,
+      "summary": "Scholarships for undergraduate, graduate, and doctoral students of all subjects and nationalities at German universities, with a focus on political engagement.",
+      "source_url": "https://www.boell.de/en/scholarships",
+      "source_name": "Heinrich Böll Foundation",
+      "credibility": "institutional",
+      "eligibility": {
+        "destination_country": "Germany",
+        "eligible_nationalities": "any",
+        "degree_levels": ["Bachelor's", "Masters", "PhD"],
+        "fields_of_study": "any",
+        "min_gpa_4": 3.0,
+        "min_ielts": 6.0,
+        "requires_offer": true,
+        "requires_funds": false,
+        "notes": "Emphasis on civic / political engagement alongside academic merit."
+      }
+    }
+  ]
+}

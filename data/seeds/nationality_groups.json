@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "Named nationality groups referenced by scholarship eligibility. A scholarship's `eligible_nationalities` may be: a list of demonym strings, the string 'any', or a named group from this file. Keep this file conservative — when in doubt, the matcher scores partial (not eligible) rather than guessing.",
+    "version": "0.1.0"
+  },
+  "groups": {
+    "commonwealth_lmic": {
+      "description": "Candidates from eligible low- and middle-income Commonwealth countries (non-exhaustive; reflects CSC-published lists).",
+      "demonyms": [
+        "Bangladeshi", "Cameroonian", "Ghanaian", "Indian", "Jamaican",
+        "Kenyan", "Malawian", "Mozambican", "Namibian", "Nigerian",
+        "Pakistani", "Rwandan", "Sierra Leonean", "Sri Lankan",
+        "Tanzanian", "Ugandan", "Zambian", "Zimbabwean"
+      ]
+    },
+    "chevening_eligible": {
+      "description": "Countries where Chevening runs; list is broad. UK nationals excluded separately via excluded_nationalities.",
+      "demonyms": [
+        "Afghan", "Albanian", "Algerian", "Argentine", "Armenian",
+        "Azerbaijani", "Bahraini", "Bangladeshi", "Belarusian",
+        "Bolivian", "Bosnian", "Brazilian", "Bulgarian", "Cameroonian",
+        "Chilean", "Chinese", "Colombian", "Croatian", "Cuban", "Cypriot",
+        "Ecuadorian", "Egyptian", "Ethiopian", "Georgian", "Ghanaian",
+        "Guatemalan", "Hong Konger", "Indian", "Indonesian", "Iranian",
+        "Iraqi", "Israeli", "Jamaican", "Japanese", "Jordanian",
+        "Kazakhstani", "Kenyan", "Kuwaiti", "Kyrgyz", "Lebanese",
+        "Macedonian", "Malaysian", "Mexican", "Moldovan", "Mongolian",
+        "Montenegrin", "Moroccan", "Nepali", "Nigerian", "Omani",
+        "Pakistani", "Palestinian", "Panamanian", "Peruvian", "Filipino",
+        "Qatari", "Romanian", "Russian", "Rwandan", "Saudi", "Serbian",
+        "Somali", "South African", "South Korean", "Sri Lankan",
+        "Sudanese", "Syrian", "Tajik", "Tanzanian", "Thai", "Tunisian",
+        "Turkish", "Turkmen", "Ugandan", "Ukrainian", "Emirati",
+        "Uruguayan", "Uzbek", "Venezuelan", "Vietnamese", "Yemeni",
+        "Zambian", "Zimbabwean"
+      ]
+    }
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "_meta": {
+    "description": "Deterministic, source-attributed Pakistan-specific process data for outbound students. Used by services/pakistan_policy_service.py and injected into route plans by services/route_plan_service.py. No AI input — every fact here is verified to a public official source URL listed in `official_source_url`.",
+    "version": "0.10.0",
+    "audience": "Pakistani students applying to UK / Canada / Germany student pathways."
+  },
+  "processes": [
+    {
+      "id": "hec_attestation",
+      "name": "HEC Degree Attestation",
+      "description": "The Higher Education Commission of Pakistan attests Pakistani higher education degrees (Bachelor's, Master's, MPhil, PhD) and transcripts. Most foreign universities and visa services require an HEC-attested copy of your highest qualification before they accept it.",
+      "requirements": [
+        "Original degree and transcript",
+        "CNIC (original + photocopy)",
+        "Recent passport-size photographs",
+        "Verification from issuing university (some cases)"
+      ],
+      "steps": [
+        "Get an online appointment via the HEC eServices portal",
+        "Attend in person at an HEC regional office (Islamabad, Lahore, Karachi, Peshawar, Quetta) on the appointment day",
+        "Submit documents and pay the prescribed fee",
+        "Collect attested documents on the date specified or via courier"
+      ],
+      "estimated_time_days": 14,
+      "applicable_countries": ["UK", "Canada", "Germany"],
+      "when_required": "Before submitting your final scholarship/admission package and before visa application.",
+      "official_source_url": "https://eservices.hec.gov.pk/",
+      "notes": "Walk-in service is sometimes available but appointments are strongly recommended. Allow extra time during exam-clearance season (typically July–September)."
+    },
+    {
+      "id": "ibcc_equivalence",
+      "name": "IBCC Equivalence / Attestation",
+      "description": "The Inter Boards Committee of Chairmen issues equivalence certificates for school-level qualifications (Matric, FA/FSc, O/A Levels). This is required when your prior education was outside the Pakistani board system or when an institution requests an equivalence certificate.",
+      "requirements": [
+        "Original transcripts / certificates",
+        "CNIC or B-Form",
+        "Recent photographs",
+        "Application form (available online)"
+      ],
+      "steps": [
+        "Apply online via the IBCC website",
+        "Submit originals at an IBCC office (Islamabad / Karachi / Lahore / Peshawar / Quetta / Muzaffarabad)",
+        "Pay the equivalence fee",
+        "Collect the equivalence certificate"
+      ],
+      "estimated_time_days": 21,
+      "applicable_countries": ["UK", "Canada", "Germany"],
+      "when_required": "Only required if you studied O/A Levels, IB, or an equivalent foreign system, OR if a university or visa office specifically asks for equivalence.",
+      "official_source_url": "http://www.ibcc.edu.pk/",
+      "notes": "Not every applicant needs IBCC. Confirm whether your university or destination requires it before scheduling."
+    },
+    {
+      "id": "mofa_attestation",
+      "name": "MOFA Attestation (Apostille / Authentication)",
+      "description": "The Ministry of Foreign Affairs (Pakistan) authenticates HEC- and IBCC-attested documents for use abroad. Some destination countries or specific document chains require this final step before consular legalisation.",
+      "requirements": [
+        "HEC-attested degree (or IBCC-attested certificate) — must be done first",
+        "Original CNIC + photocopy",
+        "Online appointment confirmation"
+      ],
+      "steps": [
+        "Book an online appointment via the MOFA Camp Office portal",
+        "Attend the relevant Camp Office (Islamabad / Karachi / Lahore / Peshawar / Quetta)",
+        "Pay the attestation fee",
+        "Collect attested documents"
+      ],
+      "estimated_time_days": 7,
+      "applicable_countries": ["Germany"],
+      "when_required": "Required for Germany when documents will be presented to German authorities; consult your destination's legalisation chain. Not always required for UK / Canada — verify with the consulate.",
+      "official_source_url": "https://mofa.gov.pk/",
+      "notes": "MOFA attestation typically follows HEC attestation; both are usually required for Germany's APS (Akademische Prüfstelle) where applicable."
+    },
+    {
+      "id": "police_clearance",
+      "name": "Police Clearance Certificate (PCC)",
+      "description": "A character certificate issued by Pakistan's police verifying that you have no criminal record. Often required as part of a student visa application, especially for scholarships requiring background checks.",
+      "requirements": [
+        "Original CNIC + photocopy",
+        "Passport copy",
+        "Recent photographs",
+        "Address verification"
+      ],
+      "steps": [
+        "Visit the District Police Office or apply online (varies by province)",
+        "Provide identification and complete the PCC application form",
+        "Pay the fee and provide biometric data",
+        "Pick up the certificate (typically signed by the SSP/SP)"
+      ],
+      "estimated_time_days": 10,
+      "applicable_countries": ["UK", "Canada", "Germany"],
+      "when_required": "Required by some scholarships (e.g. Chevening) and by destination consulates for certain visa categories. Always check the current visa-document checklist of your destination country.",
+      "official_source_url": "https://nadra.gov.pk/",
+      "notes": "PCC validity is usually 3–6 months from issue. Apply close to the visa-application date so it doesn't expire."
+    },
+    {
+      "id": "passport_issuance",
+      "name": "Passport Issuance / Renewal",
+      "description": "A valid Pakistani passport is required for visa applications. Most destinations require validity beyond the intended stay (usually 6+ months past course end date).",
+      "requirements": [
+        "Original CNIC",
+        "Old passport (if renewing)",
+        "Recent photographs",
+        "Application form"
+      ],
+      "steps": [
+        "Apply online via the DGI&P / NADRA passport portal OR visit a Passport Office in person",
+        "Provide biometric data",
+        "Pay the fee (urgent / normal / fast track)",
+        "Collect the passport at the office or via courier"
+      ],
+      "estimated_time_days": 14,
+      "applicable_countries": ["UK", "Canada", "Germany"],
+      "when_required": "Before any visa application. Confirm the passport is valid for the duration of your intended studies plus a buffer (usually 6 months).",
+      "official_source_url": "https://www.dgip.gov.pk/",
+      "notes": "Urgent / fast-track issuance is typically available at higher fees if the deadline is tight."
+    },
+    {
+      "id": "tb_test",
+      "name": "Tuberculosis (TB) Medical Test",
+      "description": "A pre-visa TB screening at a designated clinic. Required for UK student visa applicants from Pakistan (stays of 6+ months) and for some other destinations.",
+      "requirements": [
+        "Valid passport",
+        "Visa application reference (if applicable)",
+        "Appointment fee"
+      ],
+      "steps": [
+        "Book an appointment at an IOM-approved clinic (e.g. Gulf Medical, Islamabad / Karachi)",
+        "Attend the clinic on the appointment day",
+        "Receive the TB-clearance certificate (valid for 6 months)"
+      ],
+      "estimated_time_days": 3,
+      "applicable_countries": ["UK"],
+      "when_required": "Required for UK student visa applications by Pakistani nationals; not currently mandatory for Canada or Germany student visas.",
+      "official_source_url": "https://www.gov.uk/tb-test-visa",
+      "notes": "The certificate is valid for 6 months — book it close to your visa application."
+    },
+    {
+      "id": "nadra_documents",
+      "name": "NADRA Documents (CNIC, B-Form, Birth Certificate)",
+      "description": "Proof-of-identity documents issued by NADRA (National Database & Registration Authority). A valid CNIC is typically required for most visa applications and Pakistani process documents.",
+      "requirements": [
+        "Existing NADRA records",
+        "Photographs",
+        "Old CNIC if renewing"
+      ],
+      "steps": [
+        "Visit the nearest NADRA Registration Centre (NRC)",
+        "Submit application with required documents",
+        "Provide biometric data",
+        "Collect the issued document"
+      ],
+      "estimated_time_days": 10,
+      "applicable_countries": ["UK", "Canada", "Germany"],
+      "when_required": "Ensure your CNIC is unexpired before any official process; use Pak-Identity (online portal) for renewals where possible.",
+      "official_source_url": "https://id.nadra.gov.pk/",
+      "notes": "Renewal can usually be done online via Pak-Identity without visiting an NRC."
+    }
+  ]
+}
