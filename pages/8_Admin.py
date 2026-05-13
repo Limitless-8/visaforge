@@ -43,6 +43,7 @@ from services.source_registry_service import (
     list_sources as list_curated_sources,
     seed_from_json,
     set_active as set_curated_active,
+    upsert_source as upsert_curated_source,
 )
 
 
@@ -1330,24 +1331,302 @@ elif selected_section == "Official Sources":
 elif selected_section == "Trusted Sources":
     _section_intro(
         "Trusted Sources",
-        "Review the controlled source registry used for safer, curated refreshes.",
+        "Manage the curated source registry used for safer, controlled scholarship and policy refreshes.",
     )
 
-    c1, c2, c3 = st.columns([1.2, 1, 3])
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stExpander"] {
+            border: 1px solid rgba(148,163,184,0.30) !important;
+            border-radius: 24px !important;
+            overflow: hidden !important;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96)) !important;
+            box-shadow: 0 18px 46px rgba(15,23,42,0.07) !important;
+        }
+        div[data-testid="stExpander"] summary {
+            padding: 18px 22px !important;
+            background:
+                radial-gradient(circle at top right, rgba(124,58,237,0.12), transparent 32%),
+                linear-gradient(135deg, rgba(239,246,255,0.95), rgba(245,243,255,0.95)) !important;
+            font-weight: 900 !important;
+            color: #0f172a !important;
+            letter-spacing: -0.01em !important;
+        }
+        div[data-testid="stExpander"] summary:hover {
+            background:
+                radial-gradient(circle at top right, rgba(124,58,237,0.16), transparent 34%),
+                linear-gradient(135deg, rgba(219,234,254,0.98), rgba(237,233,254,0.98)) !important;
+        }
+        .vf-trusted-form-note {
+            background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(124,58,237,0.09));
+            border: 1px solid rgba(96,165,250,0.26);
+            border-radius: 18px;
+            padding: 14px 16px;
+            color: #334155;
+            font-weight: 750;
+            line-height: 1.6;
+            margin: 6px 0 18px 0;
+        }
+        .vf-trusted-form-note strong {
+            color: #1d4ed8;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with c1:
-        if st.button("Update Trusted Sources", type="primary", use_container_width=True):
+    def _list_from_text(value: str) -> list[str]:
+        if not value:
+            return []
+        raw_items = []
+        for line in value.replace(",", "\n").splitlines():
+            item = line.strip()
+            if item:
+                raw_items.append(item)
+        return raw_items
+
+    def _list_to_text(items: list[str]) -> str:
+        return "\n".join(str(item) for item in (items or []))
+
+    def _source_payload(
+        *,
+        name: str,
+        provider: str,
+        destination_country: str,
+        base_url: str,
+        start_urls_text: str,
+        allowed_domains_text: str,
+        follow_keywords_text: str,
+        block_keywords_text: str,
+        max_depth: int,
+        source_type: str,
+        is_active: bool,
+        requires_admin_review: bool,
+    ) -> dict:
+        return {
+            "name": name.strip(),
+            "provider": provider.strip(),
+            "destination_country": destination_country.strip(),
+            "base_url": base_url.strip(),
+            "start_urls": _list_from_text(start_urls_text),
+            "allowed_domains": _list_from_text(allowed_domains_text),
+            "follow_keywords": _list_from_text(follow_keywords_text),
+            "block_keywords": _list_from_text(block_keywords_text),
+            "max_depth": int(max_depth or 2),
+            "source_type": source_type,
+            "is_active": bool(is_active),
+            "requires_admin_review": bool(requires_admin_review),
+        }
+
+    country_options = list(settings.SUPPORTED_COUNTRIES)
+    if not country_options:
+        country_options = ["UK", "Canada", "Germany", "Australia", "Hungary"]
+
+    source_type_options = [
+        "scholarship_program",
+        "government_portal",
+        "university_portal",
+        "policy_source",
+        "general",
+    ]
+
+    action_col1, action_col2, action_col3 = st.columns([1.2, 1.1, 2.7])
+
+    with action_col1:
+        if st.button("Sync Trusted Source Registry", type="primary", use_container_width=True):
             n = seed_from_json()
-            st.success(f"{n} trusted source(s) updated.")
+            st.success(f"Trusted source registry synced. {n} source record(s) updated from the saved registry.")
             st.rerun()
 
-    with c2:
+    with action_col2:
         only_active = st.toggle("Active only", value=False)
+
+    with action_col3:
+        st.caption(
+            "Use Sync for saved registry records. Use Add/Edit below when an admin needs to manage trusted sources directly."
+        )
 
     sources = list_curated_sources(active_only=only_active)
 
+    with st.expander("Add New Trusted Source", expanded=False):
+        st.markdown(
+            """
+            <div class="vf-trusted-form-note">
+                <strong>Add a curated source</strong><br>
+                Use this form for official government, university, or recognised scholarship sources.
+                Keep the source information clear so future admins can understand why it is trusted.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <style>
+            .vf-form-section-title {
+                font-size: 0.92rem;
+                font-weight: 950;
+                color: #1e3a8a;
+                margin: 18px 0 8px 0;
+                letter-spacing: 0.02em;
+                text-transform: uppercase;
+            }
+            .vf-form-help {
+                color: #64748b;
+                font-size: 0.86rem;
+                line-height: 1.5;
+                margin-bottom: 12px;
+            }
+            div[data-testid="stTextInput"] input,
+            div[data-baseweb="select"] > div {
+                min-height: 52px !important;
+                border-radius: 14px !important;
+            }
+            div[data-testid="stTextArea"] textarea {
+                min-height: 118px !important;
+                border-radius: 14px !important;
+            }
+            div[data-testid="stNumberInput"] input {
+                min-height: 52px !important;
+                border-radius: 14px !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="vf-form-section-title">Basic Source Details</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="vf-form-help">Add the public-facing identity of the trusted source.</div>',
+            unsafe_allow_html=True,
+        )
+
+        basic_1, basic_2 = st.columns(2)
+        with basic_1:
+            add_name = st.text_input(
+                "Source name",
+                placeholder="Example: Chevening Scholarships",
+                key="trusted_add_name",
+            )
+        with basic_2:
+            add_provider = st.text_input(
+                "Provider",
+                placeholder="Example: UK Government",
+                key="trusted_add_provider",
+            )
+
+        basic_3, basic_4 = st.columns(2)
+        with basic_3:
+            add_country = st.selectbox(
+                "Destination country",
+                country_options,
+                key="trusted_add_country",
+            )
+        with basic_4:
+            add_source_type = st.selectbox(
+                "Source type",
+                source_type_options,
+                format_func=lambda x: x.replace("_", " ").title(),
+                key="trusted_add_source_type",
+            )
+
+        add_base_url = st.text_input(
+            "Main source URL",
+            placeholder="https://www.example.gov/scholarships",
+            key="trusted_add_base_url",
+        )
+
+        st.markdown('<div class="vf-form-section-title">Crawler Guidance</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="vf-form-help">Tell VisaForge where it can start, which domains are safe, and which pages should be prioritised or avoided.</div>',
+            unsafe_allow_html=True,
+        )
+
+        crawl_1, crawl_2 = st.columns(2)
+        with crawl_1:
+            add_start_urls = st.text_area(
+                "Starting page(s)",
+                placeholder="One URL per line",
+                height=118,
+                key="trusted_add_start_urls",
+            )
+        with crawl_2:
+            add_allowed_domains = st.text_area(
+                "Allowed domain(s)",
+                placeholder="example.gov\nwww.example.gov",
+                height=118,
+                key="trusted_add_allowed_domains",
+            )
+
+        crawl_3, crawl_4 = st.columns(2)
+        with crawl_3:
+            add_follow_keywords = st.text_area(
+                "Pages to prioritise",
+                placeholder="scholarship\nstudy\ninternational",
+                height=118,
+                key="trusted_add_follow_keywords",
+            )
+        with crawl_4:
+            add_block_keywords = st.text_area(
+                "Pages to avoid",
+                placeholder="privacy\ncookies\nnews\npress",
+                height=118,
+                key="trusted_add_block_keywords",
+            )
+
+        st.markdown('<div class="vf-form-section-title">Source Controls</div>', unsafe_allow_html=True)
+
+        add_opt1, add_opt2, add_opt3 = st.columns(3)
+        with add_opt1:
+            add_max_depth = st.number_input(
+                "Crawler depth",
+                min_value=1,
+                max_value=5,
+                value=2,
+                step=1,
+                key="trusted_add_max_depth",
+            )
+        with add_opt2:
+            add_is_active = st.checkbox(
+                "Source is active",
+                value=True,
+                key="trusted_add_is_active",
+            )
+        with add_opt3:
+            add_requires_review = st.checkbox(
+                "Requires admin review",
+                value=True,
+                key="trusted_add_requires_review",
+            )
+
+        if st.button("Save Trusted Source", type="primary", use_container_width=True):
+            if not add_name.strip() or not add_country.strip() or not add_base_url.strip():
+                st.error("Source name, destination country, and main source URL are required.")
+            else:
+                payload = _source_payload(
+                    name=add_name,
+                    provider=add_provider,
+                    destination_country=add_country,
+                    base_url=add_base_url,
+                    start_urls_text=add_start_urls or add_base_url,
+                    allowed_domains_text=add_allowed_domains,
+                    follow_keywords_text=add_follow_keywords,
+                    block_keywords_text=add_block_keywords,
+                    max_depth=add_max_depth,
+                    source_type=add_source_type,
+                    is_active=add_is_active,
+                    requires_admin_review=add_requires_review,
+                )
+                try:
+                    source_id = upsert_curated_source(payload)
+                    st.success(f"Trusted source saved successfully. Source ID: {source_id}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Could not save trusted source: {exc}")
+
     if not sources:
-        st.info("No trusted sources are available yet. Update trusted sources to populate this registry.")
+        st.info("No trusted sources are available yet. Sync the trusted source registry or add a trusted source manually.")
     else:
         st.markdown("#### Trusted Source Registry")
 
@@ -1366,6 +1645,7 @@ elif selected_section == "Trusted Sources":
         search_query = st.text_input(
             "Search trusted sources",
             placeholder="Search by source, provider, country, or purpose...",
+            key="trusted_source_search",
         ).strip().lower()
 
         if search_query:
@@ -1396,33 +1676,36 @@ elif selected_section == "Trusted Sources":
                         status_color = "#16a34a" if s.is_active else "#64748b"
                         review_color = "#f59e0b" if s.requires_admin_review else "#16a34a"
 
-                        st.markdown(f"### {s.name}")
-                        st.caption(s.provider or "Trusted provider")
-
                         st.markdown(
                             f"""
-<span style="background:#eef2ff;color:#4338ca;padding:6px 11px;border-radius:999px;font-size:0.76rem;font-weight:800;margin-right:6px;">{s.destination_country}</span>
-<span style="background:#ecfeff;color:#0f766e;padding:6px 11px;border-radius:999px;font-size:0.76rem;font-weight:800;margin-right:6px;">{purpose}</span>
-<span style="background:{status_color}18;color:{status_color};border:1px solid {status_color}55;padding:6px 11px;border-radius:999px;font-size:0.76rem;font-weight:800;margin-right:6px;">{status}</span>
-<span style="background:{review_color}18;color:{review_color};border:1px solid {review_color}55;padding:6px 11px;border-radius:999px;font-size:0.76rem;font-weight:800;">{review}</span>
+<div style="padding:6px 0;">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+        <div>
+            <div style="font-size:1.05rem;font-weight:900;color:#0f172a;">{s.name}</div>
+            <div style="font-size:0.86rem;color:#64748b;margin-top:4px;">{s.provider or 'Provider not listed'} ? {s.destination_country}</div>
+        </div>
+        <span style="background:{status_color};color:white;border-radius:999px;padding:6px 11px;font-size:0.74rem;font-weight:900;">{status}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+        <span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 10px;font-size:0.76rem;font-weight:850;">{purpose}</span>
+        <span style="background:#fff7ed;color:{review_color};border:1px solid #fed7aa;border-radius:999px;padding:6px 10px;font-size:0.76rem;font-weight:850;">{review}</span>
+        <span style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:999px;padding:6px 10px;font-size:0.76rem;font-weight:850;">{refreshed_label}</span>
+    </div>
+</div>
 """,
                             unsafe_allow_html=True,
                         )
 
-                        st.caption(refreshed_label)
+    st.markdown("#### Manage Trusted Source")
 
-                        if s.base_url:
-                            st.link_button(
-                                "Open Website",
-                                s.base_url,
-                                use_container_width=True,
-                            )
+    all_sources_for_manage = list_curated_sources(active_only=False)
 
-        st.markdown("#### Manage Trusted Source")
-
+    if not all_sources_for_manage:
+        st.info("Add or sync trusted sources before managing them.")
+    else:
         choice = st.selectbox(
             "Choose source",
-            sources,
+            all_sources_for_manage,
             format_func=lambda s: s.name,
             key="admin_manage_trusted_source_select",
         )
@@ -1430,37 +1713,129 @@ elif selected_section == "Trusted Sources":
         if choice:
             chosen = choice
 
-            if chosen:
-                with st.container(border=True):
-                    purpose = (chosen.source_type or "General").replace("_", " ").title()
-                    active_label = "Active" if chosen.is_active else "Inactive"
-                    active_color = "#16a34a" if chosen.is_active else "#64748b"
-                    review_label = "Manual Review" if chosen.requires_admin_review else "Auto Approved"
-                    review_color = "#f59e0b" if chosen.requires_admin_review else "#16a34a"
+            with st.container(border=True):
+                st.markdown(f"### {chosen.name}")
+                st.caption(f"{chosen.provider or 'Provider not listed'} ? {chosen.destination_country}")
 
-                    st.markdown(f"### {chosen.name}")
+                edit_mode = st.toggle(
+                    "Edit this trusted source",
+                    value=False,
+                    key=f"trusted_edit_mode_{chosen.id}",
+                )
 
-                    st.caption(chosen.provider or "Trusted Provider")
+                if edit_mode:
+                    edit_col1, edit_col2 = st.columns(2)
 
-                    pills = f"""
-<span style='background:#eef2ff;color:#4338ca;padding:6px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;margin-right:8px;'>{chosen.destination_country}</span>
-<span style='background:#ecfeff;color:#0f766e;padding:6px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;margin-right:8px;'>{purpose}</span>
-<span style='background:#dcfce7;color:#15803d;padding:6px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;margin-right:8px;'>{active_label}</span>
-<span style='background:#fef3c7;color:#b45309;padding:6px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;'>{review_label}</span>
-"""
+                    current_country_options = list(dict.fromkeys(country_options + [chosen.destination_country]))
+                    current_source_type_options = list(dict.fromkeys(source_type_options + [chosen.source_type or "general"]))
 
-                    st.markdown(pills, unsafe_allow_html=True)
+                    with edit_col1:
+                        edit_name = st.text_input(
+                            "Source name",
+                            value=chosen.name,
+                            key=f"trusted_edit_name_{chosen.id}",
+                        )
+                        edit_provider = st.text_input(
+                            "Provider",
+                            value=chosen.provider or "",
+                            key=f"trusted_edit_provider_{chosen.id}",
+                        )
+                        edit_country = st.selectbox(
+                            "Destination country",
+                            current_country_options,
+                            index=current_country_options.index(chosen.destination_country)
+                            if chosen.destination_country in current_country_options else 0,
+                            key=f"trusted_edit_country_{chosen.id}",
+                        )
+                        edit_base_url = st.text_input(
+                            "Main source URL",
+                            value=chosen.base_url or "",
+                            key=f"trusted_edit_base_url_{chosen.id}",
+                        )
+                        edit_source_type = st.selectbox(
+                            "Source type",
+                            current_source_type_options,
+                            index=current_source_type_options.index(chosen.source_type)
+                            if chosen.source_type in current_source_type_options else 0,
+                            format_func=lambda x: x.replace("_", " ").title(),
+                            key=f"trusted_edit_source_type_{chosen.id}",
+                        )
 
-                    st.caption(f"Last refreshed: {_safe_freshness(chosen.last_refreshed_at)}")
+                    with edit_col2:
+                        edit_start_urls = st.text_area(
+                            "Starting page(s)",
+                            value=_list_to_text(chosen.start_urls),
+                            height=90,
+                            key=f"trusted_edit_start_urls_{chosen.id}",
+                        )
+                        edit_allowed_domains = st.text_area(
+                            "Allowed domain(s)",
+                            value=_list_to_text(chosen.allowed_domains),
+                            height=90,
+                            key=f"trusted_edit_allowed_domains_{chosen.id}",
+                        )
+                        edit_follow_keywords = st.text_area(
+                            "Pages to prioritise",
+                            value=_list_to_text(chosen.follow_keywords),
+                            height=90,
+                            key=f"trusted_edit_follow_keywords_{chosen.id}",
+                        )
+                        edit_block_keywords = st.text_area(
+                            "Pages to avoid",
+                            value=_list_to_text(chosen.block_keywords),
+                            height=90,
+                            key=f"trusted_edit_block_keywords_{chosen.id}",
+                        )
 
-                    st.link_button(
-                        "Open Website",
-                        chosen.base_url,
-                        use_container_width=False,
-                    )
+                    edit_opt1, edit_opt2, edit_opt3 = st.columns(3)
+                    with edit_opt1:
+                        edit_max_depth = st.number_input(
+                            "Crawler depth",
+                            min_value=1,
+                            max_value=5,
+                            value=int(chosen.max_depth or 2),
+                            step=1,
+                            key=f"trusted_edit_max_depth_{chosen.id}",
+                        )
+                    with edit_opt2:
+                        edit_is_active = st.checkbox(
+                            "Source is active",
+                            value=bool(chosen.is_active),
+                            key=f"trusted_edit_is_active_{chosen.id}",
+                        )
+                    with edit_opt3:
+                        edit_requires_review = st.checkbox(
+                            "Requires admin review",
+                            value=bool(chosen.requires_admin_review),
+                            key=f"trusted_edit_requires_review_{chosen.id}",
+                        )
 
-                    st.markdown("")
+                    if st.button("Save Trusted Source Changes", type="primary", use_container_width=True):
+                        if not edit_name.strip() or not edit_country.strip() or not edit_base_url.strip():
+                            st.error("Source name, destination country, and main source URL are required.")
+                        else:
+                            payload = _source_payload(
+                                name=edit_name,
+                                provider=edit_provider,
+                                destination_country=edit_country,
+                                base_url=edit_base_url,
+                                start_urls_text=edit_start_urls,
+                                allowed_domains_text=edit_allowed_domains,
+                                follow_keywords_text=edit_follow_keywords,
+                                block_keywords_text=edit_block_keywords,
+                                max_depth=edit_max_depth,
+                                source_type=edit_source_type,
+                                is_active=edit_is_active,
+                                requires_admin_review=edit_requires_review,
+                            )
+                            try:
+                                source_id = upsert_curated_source(payload)
+                                st.success(f"Trusted source changes saved. Source ID: {source_id}")
+                                st.rerun()
+                            except Exception as exc:
+                                st.error(f"Could not update trusted source: {exc}")
 
+                else:
                     new_active = st.checkbox(
                         "Source is active",
                         value=chosen.is_active,
