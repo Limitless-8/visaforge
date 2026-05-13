@@ -1,4 +1,4 @@
-﻿"""
+"""
 components/ui.py
 ----------------
 Reusable UI fragments: sidebar (role-aware), header, disclaimer,
@@ -982,14 +982,6 @@ section[data-testid=\"stSidebar\"] .stButton button {
             st.page_link("pages/0_Login.py", label="🔐 Login")
             st.page_link("pages/0_Register.py", label="📝 Register")
 
-            st.markdown(
-                f"""
-<div class="vf-side-status">
-    <span>Env: {settings.APP_ENV}</span>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
             return
 
         user = get_current_user() or {}
@@ -1022,16 +1014,6 @@ section[data-testid=\"stSidebar\"] .stButton button {
                 logout_session()
                 st.switch_page("app.py")
 
-            st.markdown(
-                f"""
-<div class="vf-side-status">
-    <span>LLM: {settings.LLM_PROVIDER}</span>
-    <span>Ingestion: {settings.INGESTION_PROVIDER}</span>
-    <span>Env: {settings.APP_ENV}</span>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
             return
 
         # --- Regular user -> user journey + progress ----------------------
@@ -1071,17 +1053,6 @@ section[data-testid=\"stSidebar\"] .stButton button {
         if st.button("Logout", use_container_width=True):
             logout_session()
             st.switch_page("app.py")
-
-        st.markdown(
-            f"""
-<div class="vf-side-status">
-    <span>LLM: {settings.LLM_PROVIDER}</span>
-    <span>Ingestion: {settings.INGESTION_PROVIDER}</span>
-    <span>Env: {settings.APP_ENV}</span>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
 
 
 

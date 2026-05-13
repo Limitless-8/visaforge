@@ -2016,8 +2016,6 @@ elif selected_section == "Send Notifications":
         "Create targeted applicant emails, reminders, and important notices.",
     )
 
-    left, right = st.columns([1.15, 1])
-
     audience_map = {
         "all": "All applicants",
         "incomplete_journey": "Applicants with incomplete journeys",
@@ -2034,15 +2032,62 @@ elif selected_section == "Send Notifications":
         "important_notice": "Important notice",
     }
 
+    st.markdown(
+        """
+        <style>
+        .vf-email-note {
+            background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(124,58,237,0.10));
+            border: 1px solid rgba(96,165,250,0.28);
+            border-radius: 18px;
+            padding: 14px 16px;
+            color: #1e3a8a;
+            font-weight: 750;
+            margin: 8px 0 18px 0;
+        }
+        .vf-email-preview-card {
+            background: rgba(255,255,255,0.72);
+            border: 1px solid rgba(148,163,184,0.28);
+            border-radius: 22px;
+            padding: 20px;
+            box-shadow: 0 18px 42px rgba(15,23,42,0.06);
+        }
+        .vf-email-subject {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+        .vf-email-body {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 18px;
+            line-height: 1.7;
+            color: #0f172a;
+        }
+        .vf-report-strip {
+            background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(37,99,235,0.10));
+            border: 1px solid rgba(16,185,129,0.22);
+            border-radius: 22px;
+            padding: 18px;
+            margin-top: 18px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([1.08, 1])
+
     with left:
         with st.container(border=True):
             st.markdown("### Campaign Setup")
-            st.caption("Choose the audience, message type, and optional notice content.")
+            st.caption("Choose who should receive the email and what type of message should be sent.")
 
             audience = st.selectbox(
                 "Target Audience",
                 list(audience_map.keys()),
                 format_func=lambda x: audience_map.get(x, x),
+                key="admin_notification_audience",
             )
 
             country = None
@@ -2050,95 +2095,636 @@ elif selected_section == "Send Notifications":
                 country = st.selectbox(
                     "Destination Country",
                     list(settings.SUPPORTED_COUNTRIES),
+                    key="admin_notification_country",
                 )
 
             email_type = st.selectbox(
                 "Campaign Type",
                 list(email_type_map.keys()),
                 format_func=lambda x: email_type_map.get(x, x),
+                key="admin_notification_email_type",
             )
 
-            custom_message = None
+            custom_message = ""
             if email_type == "important_notice":
                 custom_message = st.text_area(
                     "Notice Message",
-                    placeholder="Write the message applicants should receive...",
-                    height=160,
+                    placeholder="Write the important notice applicants should receive...",
+                    height=150,
+                    key="admin_notification_custom_message",
                 )
 
             st.markdown("#### Quick Summary")
-            st.info(
-                f"Audience: **{audience_map.get(audience, audience)}**\n\n"
-                f"Campaign: **{email_type_map.get(email_type, email_type)}**"
+            target_label = audience_map.get(audience, audience)
+            if audience == "destination_country" and country:
+                target_label = f"{target_label}: {country}"
+
+            st.markdown(
+                f"""
+                <div class="vf-email-note">
+                    Audience: {target_label}<br>
+                    Campaign: {email_type_map.get(email_type, email_type)}
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
             if st.button("Send Campaign", type="primary", use_container_width=True):
-                if email_type == "important_notice" and not custom_message:
+                if email_type == "important_notice" and not custom_message.strip():
                     st.error("Please write the notice message first.")
                 else:
-                    result = send_admin_email_campaign(
-                        audience=audience,
-                        email_type=email_type,
-                        country=country,
-                        custom_message=custom_message,
-                    )
+                    with st.spinner("Sending campaign and preparing delivery report..."):
+                        result = send_admin_email_campaign(
+                            audience=audience,
+                            email_type=email_type,
+                            country=country,
+                            custom_message=custom_message,
+                        )
+
+                    st.session_state["admin_last_delivery_report"] = result
 
                     st.success(
-                        f"Campaign completed. Targeted {result['targeted']} applicant(s), "
-                        f"sent {result['sent']}, failed {result['failed']}."
+                        f"Campaign completed. Targeted {result.get('targeted', 0)} applicant(s), "
+                        f"sent {result.get('sent', 0)}, failed {result.get('failed', 0)}, "
+                        f"skipped {result.get('skipped', 0)}."
                     )
 
     with right:
         with st.container(border=True):
             st.markdown("### Email Preview")
-            st.caption("This preview helps admins understand what will be sent.")
+            st.caption("Live preview of the message that will be sent to the selected applicant audience.")
 
-            preview_title = email_type_map.get(email_type, email_type)
+            target_label = audience_map.get(audience, audience)
+            if audience == "destination_country" and country:
+                target_label = f"{target_label}: {country}"
 
-            st.markdown(f"#### {preview_title}")
-            st.caption(f"Target: {audience_map.get(audience, audience)}")
+            preview_templates = {
+                "journey_reminder": {
+                    "title": "Journey reminder",
+                    "subject": "Continue your VisaForge journey",
+                    "body": (
+                        "This reminder encourages applicants to continue their VisaForge journey by completing "
+                        "their profile, checking eligibility, selecting a scholarship, generating a route plan, "
+                        "or uploading required documents."
+                    ),
+                },
+                "platform_tip": {
+                    "title": "Platform tip",
+                    "subject": "VisaForge preparation tip",
+                    "body": (
+                        "This email shares a useful platform tip to help applicants understand their next steps "
+                        "and use VisaForge more effectively during their study abroad preparation."
+                    ),
+                },
+                "destination_insight": {
+                    "title": "Destination guidance update",
+                    "subject": "Destination guidance update",
+                    "body": (
+                        "This email provides applicants with guidance related to their selected destination country, "
+                        "including preparation reminders and route-readiness suggestions."
+                    ),
+                },
+                "scholarship_insight": {
+                    "title": "Scholarship preparation guidance",
+                    "subject": "Scholarship preparation guidance",
+                    "body": (
+                        "This email reminds applicants to review scholarship criteria, deadlines, required documents, "
+                        "and next steps for their selected scholarship opportunities."
+                    ),
+                },
+                "important_notice": {
+                    "title": "Important notice",
+                    "subject": "Important VisaForge notice",
+                    "body": custom_message or "Your notice message will appear here before the campaign is sent.",
+                },
+            }
 
-            with st.container(border=True):
-                if email_type == "journey_reminder":
-                    st.markdown("**Subject:** Continue your VisaForge journey")
-                    st.write(
-                        "Applicants will receive a reminder to continue their profile, "
-                        "eligibility check, scholarship selection, or route plan."
-                    )
+            preview = preview_templates.get(
+                email_type,
+                {
+                    "title": email_type_map.get(email_type, "Email campaign"),
+                    "subject": "VisaForge notification",
+                    "body": "Campaign preview will appear here.",
+                },
+            )
 
-                elif email_type == "platform_tip":
-                    st.markdown("**Subject:** What VisaForge can help you with")
-                    st.write(
-                        "Applicants will receive a helpful overview of VisaForge features "
-                        "and how to continue their study-abroad journey."
-                    )
+            st.markdown(f"#### {preview['title']}")
+            st.caption(f"Target audience: {target_label}")
 
-                elif email_type == "destination_insight":
-                    st.markdown("**Subject:** Destination country guidance")
-                    st.write(
-                        "Applicants will receive destination-specific preparation guidance "
-                        "based on their selected country."
-                    )
-
-                elif email_type == "scholarship_insight":
-                    st.markdown("**Subject:** Scholarship guidance")
-                    st.write(
-                        "Applicants with selected scholarships will receive guidance about "
-                        "reviewing criteria, deadlines, documents, and next steps."
-                    )
-
-                elif email_type == "important_notice":
-                    st.markdown("**Subject:** Important VisaForge notice")
-                    st.write(custom_message or "Your notice message will appear here.")
+            st.markdown(
+                f"""
+                <div class="vf-email-preview-card">
+                    <div class="vf-email-subject"><strong>Subject:</strong> {preview['subject']}</div>
+                    <div class="vf-email-body">
+                        <p>Dear applicant,</p>
+                        <p>{preview['body']}</p>
+                        <p>Regards,<br><strong>VisaForge Team</strong></p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             st.markdown("#### Delivery Status")
-            st.success("Ready to send")
-
             p1, p2 = st.columns(2)
             with p1:
                 st.metric("Mode", "Email")
             with p2:
                 st.metric("Status", "Ready")
+
+    last_report = st.session_state.get("admin_last_delivery_report")
+    if last_report:
+        st.markdown("---")
+        st.markdown("### Delivery Report")
+        st.caption("Campaign result summary with searchable recipient details and a downloadable delivery log.")
+
+        targeted_count = int(last_report.get("targeted", 0) or 0)
+        sent_count = int(last_report.get("sent", 0) or 0)
+        failed_count = int(last_report.get("failed", 0) or 0)
+        skipped_count = int(last_report.get("skipped", 0) or 0)
+
+        success_rate = round((sent_count / targeted_count) * 100, 1) if targeted_count else 0
+        issue_count = failed_count + skipped_count
+
+        st.markdown(
+            f"""
+            <style>
+            .vf-delivery-hero {{
+                background:
+                    radial-gradient(circle at top left, rgba(37,99,235,0.18), transparent 34%),
+                    radial-gradient(circle at top right, rgba(124,58,237,0.16), transparent 30%),
+                    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                border: 1px solid rgba(148,163,184,0.28);
+                border-radius: 28px;
+                padding: 22px;
+                box-shadow: 0 24px 60px rgba(15,23,42,0.08);
+                margin-top: 16px;
+                margin-bottom: 18px;
+            }}
+            .vf-delivery-title {{
+                font-size: 1.05rem;
+                font-weight: 950;
+                color: #0f172a;
+                margin-bottom: 6px;
+            }}
+            .vf-delivery-subtitle {{
+                color: #64748b;
+                font-size: 0.9rem;
+                line-height: 1.6;
+            }}
+            .vf-delivery-grid {{
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 14px;
+                margin-top: 18px;
+            }}
+            .vf-delivery-card {{
+                border-radius: 22px;
+                padding: 18px;
+                min-height: 108px;
+                border: 1px solid rgba(148,163,184,0.20);
+                box-shadow: 0 16px 38px rgba(15,23,42,0.06);
+                position: relative;
+                overflow: hidden;
+            }}
+            .vf-delivery-card::after {{
+                content: "";
+                position: absolute;
+                width: 90px;
+                height: 90px;
+                border-radius: 999px;
+                top: -36px;
+                right: -26px;
+                background: rgba(255,255,255,0.18);
+            }}
+            .vf-card-blue {{
+                background: linear-gradient(135deg,#2563eb,#4f46e5);
+                color: white;
+            }}
+            .vf-card-green {{
+                background: linear-gradient(135deg,#059669,#10b981);
+                color: white;
+            }}
+            .vf-card-red {{
+                background: linear-gradient(135deg,#ef4444,#f97316);
+                color: white;
+            }}
+            .vf-card-purple {{
+                background: linear-gradient(135deg,#7c3aed,#2563eb);
+                color: white;
+            }}
+            .vf-card-amber {{
+                background: linear-gradient(135deg,#f59e0b,#f97316);
+                color: white;
+            }}
+            .vf-card-label {{
+                font-size: 0.78rem;
+                font-weight: 900;
+                opacity: 0.92;
+                margin-bottom: 10px;
+            }}
+            .vf-card-value {{
+                font-size: 2.05rem;
+                font-weight: 950;
+                line-height: 1;
+                letter-spacing: -0.05em;
+            }}
+            .vf-card-hint {{
+                font-size: 0.76rem;
+                font-weight: 800;
+                opacity: 0.88;
+                margin-top: 10px;
+            }}
+            .vf-report-note {{
+                background: linear-gradient(135deg, rgba(37,99,235,0.10), rgba(124,58,237,0.10));
+                border: 1px solid rgba(96,165,250,0.26);
+                border-radius: 20px;
+                padding: 15px 17px;
+                color: #1e3a8a;
+                font-weight: 800;
+                line-height: 1.6;
+                margin: 16px 0;
+            }}
+            @media (max-width: 1000px) {{
+                .vf-delivery-grid {{
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }}
+            }}
+            </style>
+
+            <div class="vf-delivery-hero">
+                <div class="vf-delivery-title">Latest Campaign Result</div>
+                <div class="vf-delivery-subtitle">
+                    Summary of the most recent notification campaign. Recipient details are searchable below and the complete report can be downloaded.
+                </div>
+                <div class="vf-delivery-grid">
+                    <div class="vf-delivery-card vf-card-blue">
+                        <div class="vf-card-label">TARGETED</div>
+                        <div class="vf-card-value">{targeted_count}</div>
+                        <div class="vf-card-hint">Applicants matched</div>
+                    </div>
+                    <div class="vf-delivery-card vf-card-green">
+                        <div class="vf-card-label">SENT</div>
+                        <div class="vf-card-value">{sent_count}</div>
+                        <div class="vf-card-hint">Successfully processed</div>
+                    </div>
+                    <div class="vf-delivery-card vf-card-red">
+                        <div class="vf-card-label">FAILED</div>
+                        <div class="vf-card-value">{failed_count}</div>
+                        <div class="vf-card-hint">Email provider errors</div>
+                    </div>
+                    <div class="vf-delivery-card vf-card-amber">
+                        <div class="vf-card-label">SKIPPED</div>
+                        <div class="vf-card-value">{skipped_count}</div>
+                        <div class="vf-card-hint">Missing required data</div>
+                    </div>
+                    <div class="vf-delivery-card vf-card-purple">
+                        <div class="vf-card-label">SUCCESS RATE</div>
+                        <div class="vf-card-value">{success_rate}%</div>
+                        <div class="vf-card-hint">Sent / targeted</div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        delivery_rows = last_report.get("delivery_report", [])
+        if delivery_rows:
+            report_df = pd.DataFrame(delivery_rows)
+
+            expected_cols = ["Name", "Email", "Status", "Reason"]
+            for col in expected_cols:
+                if col not in report_df.columns:
+                    report_df[col] = ""
+
+            report_df = report_df[expected_cols].copy()
+            report_df["Status"] = report_df["Status"].fillna("Unknown").astype(str)
+            report_df["Name"] = report_df["Name"].fillna("Applicant").astype(str)
+            report_df["Email"] = report_df["Email"].fillna("No email").astype(str)
+            report_df["Reason"] = report_df["Reason"].fillna("").astype(str)
+
+            sent_df = report_df[report_df["Status"] == "Sent"].copy()
+            issue_df = report_df[report_df["Status"].isin(["Failed", "Skipped"])].copy()
+
+            st.markdown(
+                """
+                <div class="vf-report-note">
+                    Recipient tables are limited on-screen for performance. Use search to narrow results or download the full CSV report for large campaigns.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            csv_col, info_col = st.columns([1, 2])
+            with csv_col:
+                csv_data = report_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download full delivery report",
+                    data=csv_data,
+                    file_name="visaforge_delivery_report.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with info_col:
+                st.caption(
+                    f"Full report contains {len(report_df)} recipient record(s), "
+                    f"including {len(sent_df)} sent and {len(issue_df)} failed/skipped record(s)."
+                )
+
+            def _delivery_status_class(value):
+                value = str(value or "").lower()
+                if value == "sent":
+                    return "good"
+                if value == "failed":
+                    return "bad"
+                if value == "skipped":
+                    return "warn"
+                return "blue"
+
+            def _render_delivery_table(title, subtitle, rows_df, count_label, empty_message):
+                table_rows = []
+                for index, row in enumerate(rows_df.to_dict("records"), start=1):
+                    name = html.escape(str(row.get("Name", "Applicant")))
+                    email = html.escape(str(row.get("Email", "No email")))
+                    status = html.escape(str(row.get("Status", "Unknown")))
+                    reason = html.escape(str(row.get("Reason", "")))
+                    status_class = _delivery_status_class(status)
+
+                    table_rows.append(
+                        f"""
+                        <tr>
+                            <td class="rank-cell">{index:02d}</td>
+                            <td>
+                                <div class="recipient-name">{name}</div>
+                                <div class="recipient-email">{email}</div>
+                            </td>
+                            <td><span class="status-badge {status_class}">{status}</span></td>
+                            <td><div class="reason-cell">{reason}</div></td>
+                        </tr>
+                        """
+                    )
+
+                if not table_rows:
+                    table_rows.append(
+                        f"""
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state">{html.escape(empty_message)}</div>
+                            </td>
+                        </tr>
+                        """
+                    )
+
+                table_template = """
+                <!doctype html>
+                <html>
+                <head>
+                    <style>
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            background: transparent;
+                            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                            color: #0f172a;
+                        }
+                        .vf-delivery-table-card {
+                            background:
+                                radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 30%),
+                                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                            border: 1px solid rgba(148,163,184,0.28);
+                            border-radius: 26px;
+                            box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                            padding: 22px;
+                            overflow: hidden;
+                        }
+                        .vf-delivery-table-head {
+                            display: flex;
+                            justify-content: space-between;
+                            gap: 18px;
+                            align-items: flex-start;
+                            margin-bottom: 18px;
+                            padding-bottom: 16px;
+                            border-bottom: 1px solid rgba(148,163,184,0.20);
+                        }
+                        .vf-table-title {
+                            font-size: 1.08rem;
+                            font-weight: 950;
+                            color: #0f172a;
+                            letter-spacing: -0.02em;
+                        }
+                        .vf-table-subtitle {
+                            color: #64748b;
+                            font-size: 0.86rem;
+                            margin-top: 5px;
+                            line-height: 1.5;
+                        }
+                        .vf-table-count {
+                            background: linear-gradient(135deg,#2563eb,#7c3aed);
+                            color: white;
+                            border-radius: 999px;
+                            padding: 8px 14px;
+                            font-size: 0.78rem;
+                            font-weight: 900;
+                            white-space: nowrap;
+                            box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                        }
+                        .vf-table-wrap {
+                            overflow-x: auto;
+                            border-radius: 18px;
+                            border: 1px solid rgba(226,232,240,0.95);
+                        }
+                        .vf-delivery-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            min-width: 860px;
+                            background: white;
+                        }
+                        .vf-delivery-table th {
+                            background: #f8fafc;
+                            color: #475569;
+                            font-size: 0.72rem;
+                            text-transform: uppercase;
+                            letter-spacing: 0.06em;
+                            font-weight: 900;
+                            text-align: left;
+                            padding: 14px 14px;
+                            border-bottom: 1px solid #e2e8f0;
+                            white-space: nowrap;
+                        }
+                        .vf-delivery-table td {
+                            padding: 14px;
+                            border-bottom: 1px solid #eef2f7;
+                            color: #0f172a;
+                            font-size: 0.9rem;
+                            vertical-align: middle;
+                        }
+                        .vf-delivery-table tr:hover td {
+                            background: #f8fbff;
+                        }
+                        .rank-cell {
+                            color: #94a3b8 !important;
+                            font-weight: 900;
+                            width: 56px;
+                        }
+                        .recipient-name {
+                            font-weight: 900;
+                            color: #0f172a;
+                            line-height: 1.25;
+                        }
+                        .recipient-email {
+                            margin-top: 4px;
+                            color: #64748b;
+                            font-size: 0.78rem;
+                            line-height: 1.35;
+                        }
+                        .status-badge {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 999px;
+                            padding: 7px 11px;
+                            font-size: 0.76rem;
+                            font-weight: 900;
+                            white-space: nowrap;
+                            border: 1px solid transparent;
+                        }
+                        .status-badge.good {
+                            background: #ecfdf5;
+                            color: #047857;
+                            border-color: #a7f3d0;
+                        }
+                        .status-badge.blue {
+                            background: #eff6ff;
+                            color: #1d4ed8;
+                            border-color: #bfdbfe;
+                        }
+                        .status-badge.warn {
+                            background: #fffbeb;
+                            color: #b45309;
+                            border-color: #fde68a;
+                        }
+                        .status-badge.bad {
+                            background: #fef2f2;
+                            color: #b91c1c;
+                            border-color: #fecaca;
+                        }
+                        .reason-cell {
+                            color: #334155;
+                            font-size: 0.82rem;
+                            font-weight: 750;
+                            max-width: 520px;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                        }
+                        .empty-state {
+                            background: #ecfdf5;
+                            border: 1px solid #a7f3d0;
+                            color: #047857;
+                            border-radius: 16px;
+                            padding: 16px;
+                            font-weight: 900;
+                            text-align: center;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="vf-delivery-table-card">
+                        <div class="vf-delivery-table-head">
+                            <div>
+                                <div class="vf-table-title">__TITLE__</div>
+                                <div class="vf-table-subtitle">__SUBTITLE__</div>
+                            </div>
+                            <div class="vf-table-count">__COUNT__</div>
+                        </div>
+                        <div class="vf-table-wrap">
+                            <table class="vf-delivery-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Recipient</th>
+                                        <th>Status</th>
+                                        <th>Delivery Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    __ROWS__
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+
+                table_html = (
+                    table_template
+                    .replace("__TITLE__", html.escape(title))
+                    .replace("__SUBTITLE__", html.escape(subtitle))
+                    .replace("__COUNT__", html.escape(count_label))
+                    .replace("__ROWS__", "".join(table_rows))
+                )
+
+                table_height = min(720, max(320, 170 + (len(rows_df) * 62)))
+                components.html(table_html, height=table_height, scrolling=True)
+
+            sent_tab, issue_tab = st.tabs(
+                [
+                    f"Sent recipients ({len(sent_df)})",
+                    f"Failed / skipped ({len(issue_df)})",
+                ]
+            )
+
+            with sent_tab:
+                sent_search = st.text_input(
+                    "Search sent recipients",
+                    placeholder="Search by name or email...",
+                    key="admin_delivery_sent_search",
+                ).strip().lower()
+
+                visible_sent_df = sent_df.copy()
+                if sent_search:
+                    visible_sent_df = visible_sent_df[
+                        visible_sent_df["Name"].str.lower().str.contains(sent_search, na=False)
+                        | visible_sent_df["Email"].str.lower().str.contains(sent_search, na=False)
+                    ]
+
+                visible_sent_df = visible_sent_df.head(50)
+
+                _render_delivery_table(
+                    "Sent Recipients",
+                    "Showing up to 50 successful recipients. Download the CSV for the complete delivery log.",
+                    visible_sent_df,
+                    f"{len(sent_df)} Sent",
+                    "No sent recipients match the current search.",
+                )
+
+            with issue_tab:
+                issue_search = st.text_input(
+                    "Search failed or skipped recipients",
+                    placeholder="Search by name, email, status, or reason...",
+                    key="admin_delivery_issue_search",
+                ).strip().lower()
+
+                visible_issue_df = issue_df.copy()
+                if issue_search:
+                    visible_issue_df = visible_issue_df[
+                        visible_issue_df["Name"].str.lower().str.contains(issue_search, na=False)
+                        | visible_issue_df["Email"].str.lower().str.contains(issue_search, na=False)
+                        | visible_issue_df["Status"].str.lower().str.contains(issue_search, na=False)
+                        | visible_issue_df["Reason"].str.lower().str.contains(issue_search, na=False)
+                    ]
+
+                _render_delivery_table(
+                    "Failed or Skipped Recipients",
+                    "Applicants that were not sent an email because of provider errors or missing required data.",
+                    visible_issue_df,
+                    f"{len(issue_df)} Issues",
+                    "No failed or skipped recipients in the latest campaign.",
+                )
+        else:
+            st.info("No recipient-level delivery details were returned for this campaign.")
 
 
 # ---------------------------------------------------------------------

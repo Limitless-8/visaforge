@@ -73,9 +73,26 @@ def send_admin_email_campaign(
 
     sent = 0
     failed = 0
+    skipped = 0
+    delivery_report: list[dict] = []
+
+    def _record(user, status: str, reason: str) -> None:
+        delivery_report.append(
+            {
+                "Name": getattr(user, "name", "") or "Applicant",
+                "Email": getattr(user, "email", "") or "No email",
+                "Status": status,
+                "Reason": reason,
+            }
+        )
 
     for user in users:
         journey = compute_journey(user.id)
+
+        if not getattr(user, "email", None):
+            skipped += 1
+            _record(user, "Skipped", "Applicant does not have an email address.")
+            continue
 
         if email_type == "journey_reminder":
             next_step, _ = journey.current_step()
@@ -86,7 +103,8 @@ def send_admin_email_campaign(
 
         elif email_type == "destination_insight":
             if not journey.destination_country:
-                failed += 1
+                skipped += 1
+                _record(user, "Skipped", "No destination country selected.")
                 continue
 
             next_step, _ = journey.current_step()
@@ -98,7 +116,8 @@ def send_admin_email_campaign(
 
         elif email_type == "scholarship_insight":
             if not journey.scholarship_selected or not journey.selected_scholarship_id:
-                failed += 1
+                skipped += 1
+                _record(user, "Skipped", "No scholarship selected.")
                 continue
 
             next_step, _ = journey.current_step()
@@ -107,7 +126,8 @@ def send_admin_email_campaign(
             )
 
             if not scholarship:
-                failed += 1
+                skipped += 1
+                _record(user, "Skipped", "Selected scholarship could not be found.")
                 continue
 
             subject, body = scholarship_insight_text(
@@ -123,17 +143,22 @@ def send_admin_email_campaign(
             )
 
         else:
-            failed += 1
+            skipped += 1
+            _record(user, "Skipped", "Unsupported campaign type.")
             continue
 
         ok = send_email(user.email, subject, body)
         if ok:
             sent += 1
+            _record(user, "Sent", "Email sent successfully.")
         else:
             failed += 1
+            _record(user, "Failed", "Email provider rejected or failed the message.")
 
     return {
         "targeted": len(users),
         "sent": sent,
         "failed": failed,
+        "skipped": skipped,
+        "delivery_report": delivery_report,
     }

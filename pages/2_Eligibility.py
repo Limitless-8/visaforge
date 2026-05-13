@@ -689,8 +689,8 @@ if run or st.session_state.get("eligibility_report"):
     c1, c2 = st.columns(2)
     with c1:
         st.page_link(
-            "pages/3_Route_Plan.py",
-            label="Generate route plan →",
+            "pages/4_Scholarships.py",
+            label="Select scholarship ->",
         )
     with c2:
         st.page_link(
