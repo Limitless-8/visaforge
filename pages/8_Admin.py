@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+import html
 
 import pandas as pd
 import streamlit as st
@@ -731,59 +733,297 @@ if selected_section == "User Analytics":
         components.html(insight_html, height=520, scrolling=False)
     st.markdown("#### Applicant Progress")
 
+    applicant_search = st.text_input(
+        "Search applicants",
+        placeholder="Search by name, email, destination, stage, or status...",
+        key="admin_user_analytics_applicant_search",
+    ).strip().lower()
+
     rows = rows_for_charts
+    if applicant_search:
+        rows = [
+            row for row in rows
+            if applicant_search in " ".join(
+                str(row.get(field, ""))
+                for field in [
+                    "Name",
+                    "Email",
+                    "Destination",
+                    "Journey Stage",
+                    "Profile",
+                    "Eligibility",
+                    "Scholarship",
+                    "Route Plan",
+                ]
+            ).lower()
+        ]
+
     if rows:
-        progress_html = "<div style='display:flex;flex-direction:column;gap:14px;margin-bottom:26px;'>"
+        def _clean(value, fallback=""):
+            if value is None:
+                return fallback
+            value = str(value).strip()
+            return value if value else fallback
 
-        stage_colors = {
-            "Not Started": "#64748b",
-            "Profile Complete": "#6366f1",
-            "Eligibility Complete": "#06b6d4",
-            "Scholarship Selected": "#8b5cf6",
-            "Route Generated": "#2563eb",
-            "Document Vault": "#f59e0b",
-            "Completed": "#16a34a",
-        }
+        def _status_class(value):
+            value = _clean(value, "Pending").lower()
+            if value in {"complete", "completed", "selected", "generated", "route generated"}:
+                return "good"
+            if value in {"eligibility complete", "profile complete", "scholarship selected"}:
+                return "blue"
+            if value in {"pending", "not selected"}:
+                return "warn"
+            if value in {"not started"}:
+                return "muted"
+            return "blue"
 
-        for row in rows:
-            name = row.get("Name", "Unknown")
-            email = row.get("Email", "")
-            destination = row.get("Destination", "Not Selected")
-            stage = row.get("Journey Stage", "Not Started")
-            completion = row.get("Completion %", 0)
-            color = stage_colors.get(stage, "#2563eb")
+        table_rows = []
+        for index, row in enumerate(rows, start=1):
+            name = html.escape(_clean(row.get("Name"), "Unknown Applicant"))
+            email = html.escape(_clean(row.get("Email"), "No email"))
+            destination = html.escape(_clean(row.get("Destination"), "Not Selected"))
+            stage = html.escape(_clean(row.get("Journey Stage"), "Not Started"))
+            profile = html.escape(_clean(row.get("Profile"), "Pending"))
+            eligibility = html.escape(_clean(row.get("Eligibility"), "Pending"))
+            scholarship = html.escape(_clean(row.get("Scholarship"), "Pending"))
+            route_plan = html.escape(_clean(row.get("Route Plan"), "Pending"))
 
-            progress_html += (
-                f"<div style='background:rgba(255,255,255,0.9);border:1px solid rgba(148,163,184,0.22);border-radius:22px;padding:18px 20px;box-shadow:0 14px 32px rgba(15,23,42,0.06);display:grid;grid-template-columns:2fr 1fr 1.3fr 1.2fr;gap:18px;align-items:center;'>"
-                f"<div>"
-                f"<div style='font-weight:850;color:#0f172a;font-size:1rem;'>{name}</div>"
-                f"<div style='font-size:0.82rem;color:#64748b;margin-top:4px;'>{email}</div>"
-                f"</div>"
-                f"<div>"
-                f"<div style='font-size:0.75rem;color:#64748b;font-weight:700;text-transform:uppercase;'>Destination</div>"
-                f"<div style='font-weight:800;color:#0f172a;margin-top:4px;'>{destination}</div>"
-                f"</div>"
-                f"<div>"
-                f"<span style='display:inline-block;background:{color}22;color:{color};border:1px solid {color}55;border-radius:999px;padding:7px 12px;font-size:0.82rem;font-weight:800;'>{stage}</span>"
-                f"</div>"
-                f"<div>"
-                f"<div style='display:flex;justify-content:space-between;font-size:0.78rem;font-weight:800;color:#334155;margin-bottom:7px;'>"
-                f"<span>Completion</span><span>{completion}%</span>"
-                f"</div>"
-                f"<div style='height:9px;background:#e2e8f0;border-radius:999px;overflow:hidden;'>"
-                f"<div style='height:9px;width:{completion}%;background:{color};border-radius:999px;'></div>"
-                f"</div>"
-                f"</div>"
-                f"</div>"
+            try:
+                completion = int(float(row.get("Completion %", 0)))
+            except Exception:
+                completion = 0
+            completion = max(0, min(100, completion))
+
+            table_rows.append(
+                f"""
+                <tr>
+                    <td class="rank-cell">{index:02d}</td>
+                    <td>
+                        <div class="applicant-name">{name}</div>
+                        <div class="applicant-email">{email}</div>
+                    </td>
+                    <td><span class="destination-pill">{destination}</span></td>
+                    <td>
+                        <div class="progress-line">
+                            <div class="progress-track">
+                                <div class="progress-fill" style="width:{completion}%;"></div>
+                            </div>
+                            <span>{completion}%</span>
+                        </div>
+                    </td>
+                    <td><span class="status-badge {_status_class(stage)}">{stage}</span></td>
+                    <td><span class="status-badge {_status_class(profile)}">{profile}</span></td>
+                    <td><span class="status-badge {_status_class(eligibility)}">{eligibility}</span></td>
+                    <td><span class="status-badge {_status_class(scholarship)}">{scholarship}</span></td>
+                    <td><span class="status-badge {_status_class(route_plan)}">{route_plan}</span></td>
+                </tr>
+                """
             )
 
-        progress_html += "</div>"
+        table_template = """
+        <!doctype html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    color: #0f172a;
+                }
+                .vf-applicant-table-card {
+                    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                    border: 1px solid rgba(148,163,184,0.28);
+                    border-radius: 26px;
+                    box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                    padding: 22px;
+                    overflow: hidden;
+                }
+                .vf-applicant-table-head {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 18px;
+                    align-items: flex-start;
+                    margin-bottom: 18px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid rgba(148,163,184,0.20);
+                }
+                .vf-applicant-table-title {
+                    font-size: 1.15rem;
+                    font-weight: 900;
+                    color: #0f172a;
+                    letter-spacing: -0.02em;
+                }
+                .vf-applicant-table-subtitle {
+                    color: #64748b;
+                    font-size: 0.9rem;
+                    margin-top: 5px;
+                }
+                .vf-applicant-count {
+                    background: linear-gradient(135deg,#2563eb,#7c3aed);
+                    color: white;
+                    border-radius: 999px;
+                    padding: 8px 14px;
+                    font-size: 0.82rem;
+                    font-weight: 850;
+                    white-space: nowrap;
+                    box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                }
+                .vf-table-wrap {
+                    overflow-x: auto;
+                    border-radius: 18px;
+                    border: 1px solid rgba(226,232,240,0.95);
+                }
+                .vf-applicant-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    min-width: 1080px;
+                    background: white;
+                }
+                .vf-applicant-table th {
+                    background: #f8fafc;
+                    color: #475569;
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    font-weight: 900;
+                    text-align: left;
+                    padding: 14px 14px;
+                    border-bottom: 1px solid #e2e8f0;
+                    white-space: nowrap;
+                }
+                .vf-applicant-table td {
+                    padding: 14px;
+                    border-bottom: 1px solid #eef2f7;
+                    color: #0f172a;
+                    font-size: 0.9rem;
+                    vertical-align: middle;
+                }
+                .vf-applicant-table tr:hover td {
+                    background: #f8fbff;
+                }
+                .rank-cell {
+                    color: #94a3b8 !important;
+                    font-weight: 900;
+                    width: 56px;
+                }
+                .applicant-name {
+                    font-weight: 900;
+                    color: #0f172a;
+                }
+                .applicant-email {
+                    margin-top: 3px;
+                    color: #64748b;
+                    font-size: 0.78rem;
+                }
+                .destination-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border: 1px solid #bfdbfe;
+                    font-weight: 850;
+                    font-size: 0.78rem;
+                    white-space: nowrap;
+                }
+                .progress-line {
+                    display: grid;
+                    grid-template-columns: minmax(110px,1fr) 42px;
+                    gap: 10px;
+                    align-items: center;
+                    font-weight: 850;
+                    color: #334155;
+                    font-size: 0.8rem;
+                }
+                .progress-track {
+                    height: 9px;
+                    background: #e2e8f0;
+                    border-radius: 999px;
+                    overflow: hidden;
+                }
+                .progress-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg,#2563eb,#7c3aed);
+                    border-radius: 999px;
+                }
+                .status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    font-size: 0.76rem;
+                    font-weight: 900;
+                    white-space: nowrap;
+                    border: 1px solid transparent;
+                }
+                .status-badge.good {
+                    background: #ecfdf5;
+                    color: #047857;
+                    border-color: #a7f3d0;
+                }
+                .status-badge.blue {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border-color: #bfdbfe;
+                }
+                .status-badge.warn {
+                    background: #fffbeb;
+                    color: #b45309;
+                    border-color: #fde68a;
+                }
+                .status-badge.muted {
+                    background: #f1f5f9;
+                    color: #64748b;
+                    border-color: #e2e8f0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="vf-applicant-table-card">
+                <div class="vf-applicant-table-head">
+                    <div>
+                        <div class="vf-applicant-table-title">Applicant Progress Table</div>
+                        <div class="vf-applicant-table-subtitle">Complete overview of all applicants, journey progress, and current workflow status.</div>
+                    </div>
+                    <div class="vf-applicant-count">__COUNT__ Applicants</div>
+                </div>
+                <div class="vf-table-wrap">
+                    <table class="vf-applicant-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Applicant</th>
+                                <th>Destination</th>
+                                <th>Progress</th>
+                                <th>Journey Stage</th>
+                                <th>Profile</th>
+                                <th>Eligibility</th>
+                                <th>Scholarship</th>
+                                <th>Route Plan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            __ROWS__
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
 
-        st.markdown(progress_html, unsafe_allow_html=True)
+        table_html = (
+            table_template
+            .replace("__COUNT__", str(len(rows)))
+            .replace("__ROWS__", "".join(table_rows))
+        )
 
-        with st.expander("View Detailed Applicant Table"):
-            progress_df = pd.DataFrame(rows)
-            st.dataframe(progress_df, use_container_width=True, hide_index=True)
+        table_height = min(760, max(360, 170 + (len(rows) * 58)))
+        components.html(table_html, height=table_height, scrolling=True)
     else:
         st.info("No applicant progress records available yet.")
 
@@ -1180,12 +1420,15 @@ elif selected_section == "Trusted Sources":
 
         st.markdown("#### Manage Trusted Source")
 
-        names = [f"{s.id}: {s.name} ({s.destination_country})" for s in sources]
-        choice = st.selectbox("Choose source", names)
+        choice = st.selectbox(
+            "Choose source",
+            sources,
+            format_func=lambda s: s.name,
+            key="admin_manage_trusted_source_select",
+        )
 
         if choice:
-            chosen_id = int(choice.split(":")[0])
-            chosen = next((s for s in sources if s.id == chosen_id), None)
+            chosen = choice
 
             if chosen:
                 with st.container(border=True):
@@ -1233,20 +1476,43 @@ elif selected_section == "Trusted Sources":
                                 st.success("Trusted source updated.")
                                 st.rerun()
 
-                    with st.expander("Crawler Rules & Restrictions"):
-                        st.caption("Advanced controls used by the source crawler. Non-technical admins usually do not need to edit these.")
+                    with st.expander("Crawler Summary"):
+                        st.caption("Plain-English summary of how this trusted source is used during scholarship and policy refreshes.")
 
-                        st.markdown("**Start URLs**")
-                        st.write(chosen.start_urls or [])
+                        start_urls = chosen.start_urls or []
+                        allowed_domains = chosen.allowed_domains or []
+                        follow_keywords = chosen.follow_keywords or []
+                        blocked_keywords = chosen.block_keywords or []
 
-                        st.markdown("**Allowed domains**")
-                        st.write(chosen.allowed_domains or [])
+                        st.markdown("**Where the crawler starts**")
+                        if start_urls:
+                            for url in start_urls:
+                                st.markdown(f"- It starts checking from: `{url}`")
+                        else:
+                            st.markdown("- No starting page has been configured yet.")
 
-                        st.markdown("**Follow keywords**")
-                        st.write(chosen.follow_keywords or [])
+                        st.markdown("**Which website it is allowed to use**")
+                        if allowed_domains:
+                            readable_domains = ", ".join(str(domain) for domain in allowed_domains)
+                            st.markdown(f"- It only follows pages from: **{readable_domains}**")
+                        else:
+                            st.markdown("- No allowed website domain has been configured yet.")
 
-                        st.markdown("**Blocked keywords**")
-                        st.write(chosen.block_keywords or [])
+                        st.markdown("**What type of pages it looks for**")
+                        if follow_keywords:
+                            readable_follow = ", ".join(str(keyword) for keyword in follow_keywords)
+                            st.markdown(f"- It prioritises pages related to: **{readable_follow}**")
+                        else:
+                            st.markdown("- No priority keywords have been configured yet.")
+
+                        st.markdown("**What type of pages it avoids**")
+                        if blocked_keywords:
+                            readable_blocked = ", ".join(str(keyword) for keyword in blocked_keywords)
+                            st.markdown(f"- It avoids pages related to: **{readable_blocked}**")
+                        else:
+                            st.markdown("- No blocked keywords have been configured yet.")
+
+                        st.info("This summary is shown for admin understanding only. It does not change crawler behaviour.")
 
 
 # ---------------------------------------------------------------------
@@ -1350,23 +1616,276 @@ elif selected_section == "Scholarship Library":
                             use_container_width=True,
                         )
 
-        with st.expander("View Detailed Scholarship Table"):
-            library_df = pd.DataFrame(
-                [
-                    {
-                        "Scholarship": s.title,
-                        "Provider": s.provider or "Not listed",
-                        "Country": s.country or "Not listed",
-                        "Degree Level": s.degree_level or "Any",
-                        "Deadline": s.deadline or "Not listed",
-                        "Trust": s.credibility.title() if s.credibility else "Unknown",
-                        "Review Status": (s.review_status or "approved").replace("_", " ").title(),
-                        "Source": s.source_url,
-                    }
-                    for s in scholarships
-                ]
+        def _sch_clean(value, fallback="Not listed"):
+            if value is None:
+                return fallback
+            value = str(value).strip()
+            return value if value else fallback
+
+        def _sch_status_class(value):
+            value = _sch_clean(value, "Unknown").lower()
+            if value in {"official", "approved", "verified", "government"}:
+                return "good"
+            if value in {"institutional", "university", "trusted"}:
+                return "blue"
+            if value in {"pending", "not listed", "unknown"}:
+                return "warn"
+            if value in {"rejected", "hidden"}:
+                return "bad"
+            return "blue"
+
+        scholarship_rows = []
+        for index, s in enumerate(scholarships, start=1):
+            title = html.escape(_sch_clean(s.title, "Untitled scholarship"))
+            provider = html.escape(_sch_clean(s.provider, "Provider not listed"))
+            country_value = html.escape(_sch_clean(s.country, "Not listed"))
+            degree = html.escape(_sch_clean(s.degree_level, "Any"))
+            deadline = html.escape(_sch_clean(s.deadline, "Not listed"))
+            trust = html.escape(_sch_clean(s.credibility.title() if s.credibility else "Unknown", "Unknown"))
+            review_status = html.escape(_sch_clean((s.review_status or "approved").replace("_", " ").title(), "Approved"))
+            source_url = _sch_clean(s.source_url, "")
+
+            if source_url:
+                source_html = f'<a class="source-link" href="{html.escape(source_url)}" target="_blank">Open Source</a>'
+            else:
+                source_html = '<span class="source-muted">Not listed</span>'
+
+            scholarship_rows.append(
+                f"""
+                <tr>
+                    <td class="rank-cell">{index:02d}</td>
+                    <td>
+                        <div class="sch-title">{title}</div>
+                        <div class="sch-provider">{provider}</div>
+                    </td>
+                    <td><span class="country-pill">{country_value}</span></td>
+                    <td><span class="degree-pill">{degree}</span></td>
+                    <td><span class="deadline-pill">{deadline}</span></td>
+                    <td><span class="status-badge {_sch_status_class(trust)}">{trust}</span></td>
+                    <td><span class="status-badge {_sch_status_class(review_status)}">{review_status}</span></td>
+                    <td>{source_html}</td>
+                </tr>
+                """
             )
-            st.dataframe(library_df, use_container_width=True, hide_index=True)
+
+        table_template = """
+        <!doctype html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    color: #0f172a;
+                }
+                .vf-scholarship-table-card {
+                    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                    border: 1px solid rgba(148,163,184,0.28);
+                    border-radius: 26px;
+                    box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                    padding: 22px;
+                    overflow: hidden;
+                    margin-top: 18px;
+                }
+                .vf-scholarship-table-head {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 18px;
+                    align-items: flex-start;
+                    margin-bottom: 18px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid rgba(148,163,184,0.20);
+                }
+                .vf-scholarship-table-title {
+                    font-size: 1.15rem;
+                    font-weight: 900;
+                    color: #0f172a;
+                    letter-spacing: -0.02em;
+                }
+                .vf-scholarship-table-subtitle {
+                    color: #64748b;
+                    font-size: 0.9rem;
+                    margin-top: 5px;
+                }
+                .vf-scholarship-count {
+                    background: linear-gradient(135deg,#2563eb,#7c3aed);
+                    color: white;
+                    border-radius: 999px;
+                    padding: 8px 14px;
+                    font-size: 0.82rem;
+                    font-weight: 850;
+                    white-space: nowrap;
+                    box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                }
+                .vf-table-wrap {
+                    overflow-x: auto;
+                    border-radius: 18px;
+                    border: 1px solid rgba(226,232,240,0.95);
+                }
+                .vf-scholarship-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    min-width: 1120px;
+                    background: white;
+                }
+                .vf-scholarship-table th {
+                    background: #f8fafc;
+                    color: #475569;
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    font-weight: 900;
+                    text-align: left;
+                    padding: 14px 14px;
+                    border-bottom: 1px solid #e2e8f0;
+                    white-space: nowrap;
+                }
+                .vf-scholarship-table td {
+                    padding: 14px;
+                    border-bottom: 1px solid #eef2f7;
+                    color: #0f172a;
+                    font-size: 0.9rem;
+                    vertical-align: middle;
+                }
+                .vf-scholarship-table tr:hover td {
+                    background: #f8fbff;
+                }
+                .rank-cell {
+                    color: #94a3b8 !important;
+                    font-weight: 900;
+                    width: 56px;
+                }
+                .sch-title {
+                    font-weight: 900;
+                    color: #0f172a;
+                    line-height: 1.25;
+                }
+                .sch-provider {
+                    margin-top: 4px;
+                    color: #64748b;
+                    font-size: 0.78rem;
+                    line-height: 1.35;
+                }
+                .country-pill,
+                .degree-pill,
+                .deadline-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    font-weight: 850;
+                    font-size: 0.78rem;
+                    white-space: nowrap;
+                }
+                .country-pill {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border: 1px solid #bfdbfe;
+                }
+                .degree-pill {
+                    background: #f5f3ff;
+                    color: #6d28d9;
+                    border: 1px solid #ddd6fe;
+                }
+                .deadline-pill {
+                    background: #fff7ed;
+                    color: #c2410c;
+                    border: 1px solid #fed7aa;
+                }
+                .status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    font-size: 0.76rem;
+                    font-weight: 900;
+                    white-space: nowrap;
+                    border: 1px solid transparent;
+                }
+                .status-badge.good {
+                    background: #ecfdf5;
+                    color: #047857;
+                    border-color: #a7f3d0;
+                }
+                .status-badge.blue {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border-color: #bfdbfe;
+                }
+                .status-badge.warn {
+                    background: #fffbeb;
+                    color: #b45309;
+                    border-color: #fde68a;
+                }
+                .status-badge.bad {
+                    background: #fef2f2;
+                    color: #b91c1c;
+                    border-color: #fecaca;
+                }
+                .source-link {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    text-decoration: none;
+                    border-radius: 999px;
+                    padding: 8px 12px;
+                    background: linear-gradient(135deg,#2563eb,#7c3aed);
+                    color: white;
+                    font-size: 0.76rem;
+                    font-weight: 900;
+                    white-space: nowrap;
+                }
+                .source-muted {
+                    color: #94a3b8;
+                    font-size: 0.8rem;
+                    font-weight: 800;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="vf-scholarship-table-card">
+                <div class="vf-scholarship-table-head">
+                    <div>
+                        <div class="vf-scholarship-table-title">Scholarship Library Table</div>
+                        <div class="vf-scholarship-table-subtitle">Readable overview of all scholarship records, providers, trust level, deadlines, and source links.</div>
+                    </div>
+                    <div class="vf-scholarship-count">__COUNT__ Records</div>
+                </div>
+                <div class="vf-table-wrap">
+                    <table class="vf-scholarship-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Scholarship</th>
+                                <th>Country</th>
+                                <th>Degree Level</th>
+                                <th>Deadline</th>
+                                <th>Trust</th>
+                                <th>Review</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            __ROWS__
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        scholarship_table_html = (
+            table_template
+            .replace("__COUNT__", str(len(scholarships)))
+            .replace("__ROWS__", "".join(scholarship_rows))
+        )
+
+        scholarship_table_height = min(820, max(390, 170 + (len(scholarships) * 58)))
+        components.html(scholarship_table_html, height=scholarship_table_height, scrolling=True)
 
 
 # ---------------------------------------------------------------------
@@ -1464,9 +1983,6 @@ elif selected_section == "Visa Routes & Rules":
                 else "Visa rule metadata is not available yet."
             )
 
-            with st.expander("Advanced Details"):
-                st.json(visa_meta)
-
     with right:
         with st.container(border=True):
             st.markdown("### Route Templates")
@@ -1488,9 +2004,6 @@ elif selected_section == "Visa Routes & Rules":
                 if route_meta
                 else "Route template metadata is not available yet."
             )
-
-            with st.expander("Advanced Details"):
-                st.json(route_meta)
 
 
 # ---------------------------------------------------------------------
@@ -1696,9 +2209,28 @@ elif selected_section == "Logs":
             if status_filter == "All" or _human_source_status(log.status) == status_filter
         ]
 
-        compact_rows = []
+        def _log_clean(value, fallback="Not listed"):
+            if value is None:
+                return fallback
+            value = str(value).strip()
+            return value if value else fallback
 
-        for log in filtered_logs:
+        def _log_status_class(value):
+            value = _log_clean(value, "Needs attention").lower()
+            if "successfully" in value or value == "success":
+                return "good"
+            if "blocked" in value or "403" in value:
+                return "bad"
+            if "unavailable" in value or "404" in value:
+                return "warn"
+            if "attention" in value or "failed" in value:
+                return "warn"
+            return "blue"
+
+        compact_table_rows = []
+        detail_table_rows = []
+
+        for index, log in enumerate(filtered_logs, start=1):
             status = _human_source_status(log.status)
 
             if status == "Healthy":
@@ -1712,62 +2244,408 @@ elif selected_section == "Logs":
 
             source = log.source_url or "Source not listed"
             short_source = source.replace("https://", "").replace("http://", "").split("/")[0]
+            checked = _safe_freshness(log.created_at)
+            items_found = log.items_found or 0
+            duration = f"{log.duration_ms or 0} ms"
 
-            compact_rows.append(
-                {
-                    "Source": short_source,
-                    "Status": readable_status,
-                    "Checked": _safe_freshness(log.created_at),
-                    "Items": log.items_found,
-                    "Duration": f"{log.duration_ms or 0} ms",
-                }
+            compact_table_rows.append(
+                f"""
+                <tr>
+                    <td class="rank-cell">{index:02d}</td>
+                    <td>
+                        <div class="source-name">{html.escape(short_source)}</div>
+                        <div class="source-url">{html.escape(source)}</div>
+                    </td>
+                    <td><span class="status-badge {_log_status_class(readable_status)}">{html.escape(readable_status)}</span></td>
+                    <td><span class="time-pill">{html.escape(checked)}</span></td>
+                    <td><span class="items-pill">{html.escape(str(items_found))}</span></td>
+                    <td><span class="duration-pill">{html.escape(duration)}</span></td>
+                </tr>
+                """
             )
 
-        styled_df = pd.DataFrame(compact_rows).rename(
-            columns={"Checked": "Last Checked"}
+            detail_table_rows.append(
+                f"""
+                <tr>
+                    <td class="rank-cell">{index:02d}</td>
+                    <td><span class="status-badge {_log_status_class(log.status)}">{html.escape(_log_clean(log.status, "Unknown"))}</span></td>
+                    <td><div class="message-cell">{html.escape(_log_clean(log.message, "No message"))}</div></td>
+                    <td><div class="source-url wide">{html.escape(source)}</div></td>
+                    <td><span class="time-pill">{html.escape(checked)}</span></td>
+                    <td><span class="duration-pill">{html.escape(duration)}</span></td>
+                </tr>
+                """
+            )
+
+        logs_table_template = """
+        <!doctype html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    color: #0f172a;
+                }
+                .vf-log-card {
+                    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                    border: 1px solid rgba(148,163,184,0.28);
+                    border-radius: 26px;
+                    box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                    padding: 22px;
+                    overflow: hidden;
+                }
+                .vf-log-head {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 18px;
+                    align-items: flex-start;
+                    margin-bottom: 18px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid rgba(148,163,184,0.20);
+                }
+                .vf-log-title {
+                    font-size: 1.15rem;
+                    font-weight: 900;
+                    color: #0f172a;
+                    letter-spacing: -0.02em;
+                }
+                .vf-log-subtitle {
+                    color: #64748b;
+                    font-size: 0.9rem;
+                    margin-top: 5px;
+                }
+                .vf-log-count {
+                    background: linear-gradient(135deg,#2563eb,#7c3aed);
+                    color: white;
+                    border-radius: 999px;
+                    padding: 8px 14px;
+                    font-size: 0.82rem;
+                    font-weight: 850;
+                    white-space: nowrap;
+                    box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                }
+                .vf-table-wrap {
+                    overflow-x: auto;
+                    border-radius: 18px;
+                    border: 1px solid rgba(226,232,240,0.95);
+                }
+                .vf-log-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    min-width: 1040px;
+                    background: white;
+                }
+                .vf-log-table th {
+                    background: #f8fafc;
+                    color: #475569;
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    font-weight: 900;
+                    text-align: left;
+                    padding: 14px 14px;
+                    border-bottom: 1px solid #e2e8f0;
+                    white-space: nowrap;
+                }
+                .vf-log-table td {
+                    padding: 14px;
+                    border-bottom: 1px solid #eef2f7;
+                    color: #0f172a;
+                    font-size: 0.9rem;
+                    vertical-align: middle;
+                }
+                .vf-log-table tr:hover td {
+                    background: #f8fbff;
+                }
+                .rank-cell {
+                    color: #94a3b8 !important;
+                    font-weight: 900;
+                    width: 56px;
+                }
+                .source-name {
+                    font-weight: 900;
+                    color: #0f172a;
+                    line-height: 1.25;
+                }
+                .source-url {
+                    margin-top: 4px;
+                    color: #64748b;
+                    font-size: 0.76rem;
+                    line-height: 1.35;
+                    max-width: 410px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .source-url.wide {
+                    max-width: 520px;
+                }
+                .message-cell {
+                    color: #334155;
+                    font-size: 0.82rem;
+                    font-weight: 750;
+                    max-width: 260px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .status-badge,
+                .time-pill,
+                .items-pill,
+                .duration-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    font-size: 0.76rem;
+                    font-weight: 900;
+                    white-space: nowrap;
+                    border: 1px solid transparent;
+                }
+                .status-badge.good {
+                    background: #ecfdf5;
+                    color: #047857;
+                    border-color: #a7f3d0;
+                }
+                .status-badge.blue {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border-color: #bfdbfe;
+                }
+                .status-badge.warn {
+                    background: #fffbeb;
+                    color: #b45309;
+                    border-color: #fde68a;
+                }
+                .status-badge.bad {
+                    background: #fef2f2;
+                    color: #b91c1c;
+                    border-color: #fecaca;
+                }
+                .time-pill {
+                    background: #f1f5f9;
+                    color: #475569;
+                    border-color: #e2e8f0;
+                }
+                .items-pill {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border-color: #bfdbfe;
+                    min-width: 34px;
+                }
+                .duration-pill {
+                    background: #f5f3ff;
+                    color: #6d28d9;
+                    border-color: #ddd6fe;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="vf-log-card">
+                <div class="vf-log-head">
+                    <div>
+                        <div class="vf-log-title">Recent Source Activity</div>
+                        <div class="vf-log-subtitle">Readable overview of refresh status, source health, items found, and ingestion duration.</div>
+                    </div>
+                    <div class="vf-log-count">__COUNT__ Logs</div>
+                </div>
+                <div class="vf-table-wrap">
+                    <table class="vf-log-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Source</th>
+                                <th>Status</th>
+                                <th>Last Checked</th>
+                                <th>Items</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            __ROWS__
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        logs_table_html = (
+            logs_table_template
+            .replace("__COUNT__", str(len(filtered_logs)))
+            .replace("__ROWS__", "".join(compact_table_rows))
         )
 
-        def style_status(val):
-            val = str(val)
+        logs_table_height = min(780, max(390, 170 + (len(filtered_logs) * 58)))
+        components.html(logs_table_html, height=logs_table_height, scrolling=True)
 
-            if "successfully" in val.lower():
-                return "background-color:#dcfce7;color:#166534;font-weight:700;"
-            elif "blocked" in val.lower():
-                return "background-color:#fee2e2;color:#991b1b;font-weight:700;"
-            elif "unavailable" in val.lower():
-                return "background-color:#ffedd5;color:#c2410c;font-weight:700;"
-            else:
-                return "background-color:#fef3c7;color:#92400e;font-weight:700;"
-
-        styled_logs = styled_df.style.map(
-            style_status,
-            subset=["Status"]
-        )
-
-        st.dataframe(
-            styled_logs,
-            use_container_width=True,
-            hide_index=True,
-            height=420,
-        )
+        advanced_template = """
+        <!doctype html>
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    color: #0f172a;
+                }
+                .vf-log-card {
+                    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                    border: 1px solid rgba(148,163,184,0.28);
+                    border-radius: 26px;
+                    box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                    padding: 22px;
+                    overflow: hidden;
+                }
+                .vf-log-title {
+                    font-size: 1.1rem;
+                    font-weight: 900;
+                    color: #0f172a;
+                    margin-bottom: 5px;
+                }
+                .vf-log-subtitle {
+                    color: #64748b;
+                    font-size: 0.88rem;
+                    margin-bottom: 16px;
+                }
+                .vf-table-wrap {
+                    overflow-x: auto;
+                    border-radius: 18px;
+                    border: 1px solid rgba(226,232,240,0.95);
+                }
+                .vf-log-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    min-width: 1120px;
+                    background: white;
+                }
+                .vf-log-table th {
+                    background: #f8fafc;
+                    color: #475569;
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    font-weight: 900;
+                    text-align: left;
+                    padding: 14px 14px;
+                    border-bottom: 1px solid #e2e8f0;
+                    white-space: nowrap;
+                }
+                .vf-log-table td {
+                    padding: 14px;
+                    border-bottom: 1px solid #eef2f7;
+                    color: #0f172a;
+                    font-size: 0.9rem;
+                    vertical-align: middle;
+                }
+                .vf-log-table tr:hover td {
+                    background: #f8fbff;
+                }
+                .rank-cell {
+                    color: #94a3b8 !important;
+                    font-weight: 900;
+                    width: 56px;
+                }
+                .status-badge,
+                .time-pill,
+                .duration-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                    padding: 7px 11px;
+                    font-size: 0.76rem;
+                    font-weight: 900;
+                    white-space: nowrap;
+                    border: 1px solid transparent;
+                }
+                .status-badge.good {
+                    background: #ecfdf5;
+                    color: #047857;
+                    border-color: #a7f3d0;
+                }
+                .status-badge.blue {
+                    background: #eff6ff;
+                    color: #1d4ed8;
+                    border-color: #bfdbfe;
+                }
+                .status-badge.warn {
+                    background: #fffbeb;
+                    color: #b45309;
+                    border-color: #fde68a;
+                }
+                .status-badge.bad {
+                    background: #fef2f2;
+                    color: #b91c1c;
+                    border-color: #fecaca;
+                }
+                .message-cell {
+                    color: #334155;
+                    font-size: 0.82rem;
+                    font-weight: 750;
+                    max-width: 260px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .source-url {
+                    color: #64748b;
+                    font-size: 0.76rem;
+                    line-height: 1.35;
+                    max-width: 520px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .time-pill {
+                    background: #f1f5f9;
+                    color: #475569;
+                    border-color: #e2e8f0;
+                }
+                .duration-pill {
+                    background: #f5f3ff;
+                    color: #6d28d9;
+                    border-color: #ddd6fe;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="vf-log-card">
+                <div class="vf-log-title">Advanced Log Details</div>
+                <div class="vf-log-subtitle">Technical status, crawler message, full source URL, creation time, and duration.</div>
+                <div class="vf-table-wrap">
+                    <table class="vf-log-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Status</th>
+                                <th>Message</th>
+                                <th>Source URL</th>
+                                <th>Created</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            __ROWS__
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
 
         with st.expander("Advanced Log Details"):
-            detail_rows = [
-                {
-                    "Status": log.status,
-                    "Message": log.message or "",
-                    "Source URL": log.source_url or "",
-                    "Created": _safe_freshness(log.created_at),
-                    "Duration": f"{log.duration_ms or 0} ms",
-                }
-                for log in filtered_logs
-            ]
-
-            st.dataframe(
-                pd.DataFrame(detail_rows),
-                use_container_width=True,
-                hide_index=True,
-            )
+            advanced_html = advanced_template.replace("__ROWS__", "".join(detail_table_rows))
+            advanced_height = min(760, max(360, 160 + (len(filtered_logs) * 58)))
+            components.html(advanced_html, height=advanced_height, scrolling=True)
 
 
 st.divider()
