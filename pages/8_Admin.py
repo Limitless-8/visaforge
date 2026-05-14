@@ -4,6 +4,12 @@ import html
 
 import pandas as pd
 import streamlit as st
+
+try:
+    from st_keyup import st_keyup
+except Exception:
+    st_keyup = None
+
 import streamlit.components.v1 as components
 
 from components.ui import (
@@ -734,11 +740,61 @@ if selected_section == "User Analytics":
         components.html(insight_html, height=520, scrolling=False)
     st.markdown("#### Applicant Progress")
 
-    applicant_search = st.text_input(
-        "Search applicants",
-        placeholder="Search by name, email, destination, stage, or status...",
-        key="admin_user_analytics_applicant_search",
-    ).strip().lower()
+    st.markdown(
+        """
+        <style>
+        .vf-applicant-search-title {
+            font-size: 1rem;
+            font-weight: 950;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+        .vf-applicant-search-help {
+            color: #64748b;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        div[data-testid="stTextInput"] input {
+            min-height: 52px !important;
+            border-radius: 16px !important;
+            border: 1px solid rgba(37,99,235,0.24) !important;
+            background: rgba(255,255,255,0.98) !important;
+            font-size: 0.95rem !important;
+            box-shadow: 0 10px 26px rgba(15,23,42,0.04) !important;
+        }
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+        }
+        </style>
+        <div class="vf-applicant-search-title">Applicant Search</div>
+        <div class="vf-applicant-search-help">
+            Start typing to filter applicants. Results update after a short pause.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st_keyup is not None:
+        applicant_search_raw = st_keyup(
+            "",
+            placeholder="Search by name, email, country, stage, or status...",
+            key="admin_user_analytics_applicant_search_live",
+            label_visibility="collapsed",
+            debounce=350,
+        )
+    else:
+        applicant_search_raw = st.text_input(
+            "",
+            placeholder="Search by name, email, country, stage, or status...",
+            key="admin_user_analytics_applicant_search",
+            label_visibility="collapsed",
+        )
+
+    applicant_search = (applicant_search_raw or "").strip().lower()
 
     rows = rows_for_charts
     if applicant_search:
@@ -2600,12 +2656,12 @@ elif selected_section == "Send Notifications":
                 unsafe_allow_html=True,
             )
 
-            st.markdown("#### Delivery Status")
+            st.markdown("#### Campaign Readiness")
             p1, p2 = st.columns(2)
             with p1:
-                st.metric("Mode", "Email")
+                st.metric("Channel", "Email")
             with p2:
-                st.metric("Status", "Ready")
+                st.metric("Preview", "Ready to send")
 
     last_report = st.session_state.get("admin_last_delivery_report")
     if last_report:
@@ -3052,11 +3108,23 @@ elif selected_section == "Send Notifications":
             )
 
             with sent_tab:
-                sent_search = st.text_input(
-                    "Search sent recipients",
-                    placeholder="Search by name or email...",
-                    key="admin_delivery_sent_search",
-                ).strip().lower()
+                if st_keyup is not None:
+                    sent_search_raw = st_keyup(
+                        "",
+                        placeholder="Search by name or email...",
+                        key="admin_delivery_sent_search_live",
+                        debounce=350,
+                        label_visibility="collapsed",
+                    )
+                else:
+                    sent_search_raw = st.text_input(
+                        "",
+                        placeholder="Search by name or email...",
+                        key="admin_delivery_sent_search",
+                        label_visibility="collapsed",
+                    )
+
+                sent_search = (sent_search_raw or "").strip().lower()
 
                 visible_sent_df = sent_df.copy()
                 if sent_search:
@@ -3076,11 +3144,23 @@ elif selected_section == "Send Notifications":
                 )
 
             with issue_tab:
-                issue_search = st.text_input(
-                    "Search failed or skipped recipients",
-                    placeholder="Search by name, email, status, or reason...",
-                    key="admin_delivery_issue_search",
-                ).strip().lower()
+                if st_keyup is not None:
+                    issue_search_raw = st_keyup(
+                        "",
+                        placeholder="Search by name, email, status, or reason...",
+                        key="admin_delivery_issue_search_live",
+                        debounce=350,
+                        label_visibility="collapsed",
+                    )
+                else:
+                    issue_search_raw = st.text_input(
+                        "",
+                        placeholder="Search by name, email, status, or reason...",
+                        key="admin_delivery_issue_search",
+                        label_visibility="collapsed",
+                    )
+
+                issue_search = (issue_search_raw or "").strip().lower()
 
                 visible_issue_df = issue_df.copy()
                 if issue_search:
