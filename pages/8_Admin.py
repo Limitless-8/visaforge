@@ -31,6 +31,17 @@ from services.ingestion_service import (
     refresh_sources,
 )
 from services.notification_service import send_admin_email_campaign
+from services.auth_service import (
+    AuthError,
+    create_admin_account,
+    current_user_id,
+    get_current_user,
+    is_super_admin,
+    list_account_management_users,
+    list_admin_audit_logs,
+    set_user_active_status,
+    update_user_role,
+)
 from services.policy_service import (
     add_source,
     get_route_templates_meta,
@@ -61,6 +72,9 @@ st.set_page_config(
 
 render_sidebar()
 require_admin()
+current_admin = get_current_user() or {}
+current_admin_id = current_user_id()
+current_admin_email = current_admin.get("email", "")
 
 
 st.markdown(
@@ -316,45 +330,200 @@ sections = [
     "Scholarship Library",
     "Visa Routes & Rules",
     "Send Notifications",
-    "Logs",
 ]
 
 tab_labels = [
-    ("User Analytics", "📊 User Analytics"),
-    ("Scholarship Reviews", "🎓 Scholarship Reviews"),
-    ("Official Sources", "🌐 Official Sources"),
-    ("Trusted Sources", "🛡️ Trusted Sources"),
-    ("Scholarship Library", "📚 Scholarship Library"),
-    ("Visa Routes & Rules", "🛂 Visa Routes & Rules"),
-    ("Send Notifications", "📢 Send Notifications"),
-    ("Logs", "📜 Logs"),
+    ("User Analytics", "\U0001F4CA User Analytics"),
+    ("Scholarship Reviews", "\U0001F393 Scholarship Reviews"),
+    ("Official Sources", "\U0001F310 Official Sources"),
+    ("Trusted Sources", "\U0001F6E1\U0000FE0F Trusted Sources"),
+    ("Scholarship Library", "\U0001F4DA Scholarship Library"),
+    ("Visa Routes & Rules", "\U0001F6C2 Visa Routes & Rules"),
+    ("Send Notifications", "\U0001F4E2 Send Notifications"),
 ]
+
+if is_super_admin():
+    sections.append("Account Management")
+    tab_labels.append(("Account Management", "\U0001F451 Account Management"))
+
+sections.append("Logs")
+tab_labels.append(("Logs", "\U0001F4DC Logs"))
 
 if "selected_admin_tab" not in st.session_state:
     st.session_state.selected_admin_tab = "User Analytics"
 
-with st.container(border=True):
-    st.markdown("#### Admin Control Center")
-    st.caption("Choose what you want to manage.")
+if st.session_state.selected_admin_tab not in sections:
+    st.session_state.selected_admin_tab = "User Analytics"
 
-    row1 = st.columns(4)
-    row2 = st.columns(4)
+control_role = "Super Admin" if is_super_admin() else "Admin"
 
-    for idx, (section_key, label) in enumerate(tab_labels[:4]):
-        with row1[idx]:
+st.markdown(
+    """
+    <style>
+    .vf-control-panel {
+        background:
+            radial-gradient(circle at top right, rgba(37,99,235,0.12), transparent 32%),
+            radial-gradient(circle at bottom left, rgba(124,58,237,0.10), transparent 28%),
+            linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.97));
+        border: 1px solid rgba(148,163,184,0.28);
+        border-radius: 28px;
+        padding: 24px 24px 18px 24px;
+        box-shadow: 0 24px 60px rgba(15,23,42,0.07);
+        margin-bottom: 24px;
+    }
+
+    .vf-control-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        margin-bottom: 18px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid rgba(148,163,184,0.18);
+    }
+
+    .vf-control-title {
+        font-size: 1.35rem;
+        font-weight: 950;
+        color: #0f172a;
+        letter-spacing: -0.03em;
+        margin-bottom: 5px;
+    }
+
+    .vf-control-subtitle {
+        color: #64748b;
+        font-size: 0.93rem;
+        line-height: 1.55;
+    }
+
+    .vf-control-pill {
+        background: linear-gradient(135deg,#2563eb,#7c3aed);
+        color: white;
+        border-radius: 999px;
+        padding: 8px 13px;
+        font-size: 0.78rem;
+        font-weight: 900;
+        white-space: nowrap;
+        box-shadow: 0 14px 30px rgba(37,99,235,0.20);
+    }
+
+    div[data-testid="stButton"] > button {
+        min-height: 58px !important;
+        border-radius: 18px !important;
+        border: 1px solid rgba(148,163,184,0.28) !important;
+        background: rgba(255,255,255,0.96) !important;
+        color: #0f172a !important;
+        font-weight: 900 !important;
+        box-shadow: 0 14px 32px rgba(15,23,42,0.055) !important;
+        transition: all 0.16s ease !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+    }
+
+    div[data-testid="stButton"] > button:hover {
+        transform: translateY(-1px) !important;
+        border-color: rgba(37,99,235,0.42) !important;
+        box-shadow: 0 18px 40px rgba(37,99,235,0.12) !important;
+        background: linear-gradient(135deg, rgba(239,246,255,0.98), rgba(245,243,255,0.98)) !important;
+    }
+    .vf-admin-active-control {
+        min-height: 58px;
+        border-radius: 18px;
+        border: 1px solid rgba(34,197,94,0.34);
+        background:
+            radial-gradient(circle at top right, rgba(34,197,94,0.13), transparent 34%),
+            linear-gradient(135deg, rgba(236,253,245,0.98), rgba(255,255,255,0.98));
+        color: #0f172a;
+        font-weight: 950;
+        box-shadow: 0 18px 40px rgba(34,197,94,0.13);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 0 16px;
+        white-space: nowrap;
+    }
+
+    .vf-admin-active-capsule {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 26px;
+        border-radius: 999px;
+        background: rgba(34,197,94,0.16);
+        border: 1px solid rgba(34,197,94,0.32);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.55);
+        flex: 0 0 auto;
+    }
+
+    .vf-admin-active-light {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 4px rgba(34,197,94,0.16), 0 0 18px rgba(34,197,94,0.42);
+        display: inline-block;
+    }
+
+    .vf-admin-active-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.96rem;
+        line-height: 1.2;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <div class="vf-control-panel">
+        <div class="vf-control-head">
+            <div>
+                <div class="vf-control-title">Admin Control Center</div>
+                <div class="vf-control-subtitle">
+                    Choose a management area below. Super admin tools are shown only to authorised accounts.
+                </div>
+            </div>
+            <div class="vf-control-pill">{control_role}</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 3-column grid keeps the control center balanced even with super-admin tools.
+for row_start in range(0, len(tab_labels), 3):
+    row_items = tab_labels[row_start:row_start + 3]
+    row = st.columns(3)
+
+    for idx, (section_key, label) in enumerate(row_items):
+        with row[idx]:
             active = st.session_state.selected_admin_tab == section_key
-            button_label = ("🟢 " + label) if active else label
-            if st.button(button_label, key=f"tab_{idx}", use_container_width=True):
-                st.session_state.selected_admin_tab = section_key
-                st.rerun()
 
-    for idx, (section_key, label) in enumerate(tab_labels[4:]):
-        with row2[idx]:
-            active = st.session_state.selected_admin_tab == section_key
-            button_label = ("🟢 " + label) if active else label
-            if st.button(button_label, key=f"tab_{idx+4}", use_container_width=True):
-                st.session_state.selected_admin_tab = section_key
-                st.rerun()
+            if active:
+                st.markdown(
+                    f"""
+                    <div class="vf-admin-active-control">
+                        <span class="vf-admin-active-capsule">
+                            <span class="vf-admin-active-light"></span>
+                        </span>
+                        <span class="vf-admin-active-label">{label}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                if st.button(
+                    label,
+                    key=f"tab_{row_start + idx}",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_admin_tab = section_key
+                    st.rerun()
 
 selected_section = st.session_state.selected_admin_tab
 
@@ -3183,7 +3352,1002 @@ elif selected_section == "Send Notifications":
 
 
 # ---------------------------------------------------------------------
-# 8. Logs
+# 8. Account Management
+# ---------------------------------------------------------------------
+
+elif selected_section == "Account Management":
+    if not is_super_admin():
+        st.error("Only super admins can access account management.")
+        st.stop()
+
+    _section_intro(
+        "Account Management",
+        "Create admin accounts, manage roles, control access, and review administrative account activity.",
+    )
+
+    st.markdown(
+        """
+        <style>
+        .vf-account-hero {
+            background:
+                radial-gradient(circle at top left, rgba(37,99,235,0.18), transparent 34%),
+                radial-gradient(circle at top right, rgba(124,58,237,0.16), transparent 30%),
+                linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+            border: 1px solid rgba(148,163,184,0.28);
+            border-radius: 28px;
+            padding: 22px;
+            box-shadow: 0 24px 60px rgba(15,23,42,0.08);
+            margin: 14px 0 20px 0;
+        }
+        .vf-account-hero-title {
+            font-size: 1.1rem;
+            font-weight: 950;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+        .vf-account-hero-text {
+            color: #64748b;
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+        .vf-account-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin: 18px 0 22px 0;
+        }
+        .vf-account-card {
+            border-radius: 22px;
+            padding: 18px;
+            color: white;
+            box-shadow: 0 16px 38px rgba(15,23,42,0.08);
+            overflow: hidden;
+            position: relative;
+        }
+        .vf-account-card::after {
+            content: "";
+            position: absolute;
+            width: 88px;
+            height: 88px;
+            border-radius: 999px;
+            top: -34px;
+            right: -28px;
+            background: rgba(255,255,255,0.18);
+        }
+        .vf-card-blue { background: linear-gradient(135deg,#2563eb,#4f46e5); }
+        .vf-card-purple { background: linear-gradient(135deg,#7c3aed,#2563eb); }
+        .vf-card-green { background: linear-gradient(135deg,#059669,#10b981); }
+        .vf-card-amber { background: linear-gradient(135deg,#f59e0b,#f97316); }
+        .vf-account-label {
+            font-size: 0.78rem;
+            font-weight: 900;
+            opacity: 0.92;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .vf-account-value {
+            font-size: 2.05rem;
+            font-weight: 950;
+            line-height: 1;
+            letter-spacing: -0.05em;
+        }
+        .vf-account-hint {
+            font-size: 0.76rem;
+            font-weight: 800;
+            opacity: 0.88;
+            margin-top: 10px;
+        }
+        @media (max-width: 1000px) {
+            .vf-account-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    users = list_account_management_users()
+    total_accounts = len(users)
+    active_accounts = sum(1 for u in users if u.get("is_active"))
+    admin_accounts = sum(1 for u in users if u.get("role") == "admin")
+    super_admin_accounts = sum(1 for u in users if u.get("role") == "super_admin")
+
+    st.markdown(
+        f"""
+        <div class="vf-account-hero">
+            <div class="vf-account-hero-title">Super Admin Control</div>
+            <div class="vf-account-hero-text">
+                Manage platform access without exposing account controls to regular admins.
+                Role changes and activation updates are recorded in the admin audit log.
+            </div>
+            <div class="vf-account-grid">
+                <div class="vf-account-card vf-card-blue">
+                    <div class="vf-account-label">Total Accounts</div>
+                    <div class="vf-account-value">{total_accounts}</div>
+                    <div class="vf-account-hint">Registered users</div>
+                </div>
+                <div class="vf-account-card vf-card-green">
+                    <div class="vf-account-label">Active</div>
+                    <div class="vf-account-value">{active_accounts}</div>
+                    <div class="vf-account-hint">Can sign in</div>
+                </div>
+                <div class="vf-account-card vf-card-purple">
+                    <div class="vf-account-label">Admins</div>
+                    <div class="vf-account-value">{admin_accounts}</div>
+                    <div class="vf-account-hint">Operational admins</div>
+                </div>
+                <div class="vf-account-card vf-card-amber">
+                    <div class="vf-account-label">Super Admins</div>
+                    <div class="vf-account-value">{super_admin_accounts}</div>
+                    <div class="vf-account-hint">Full account control</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stTabs"] {
+            margin-top: 10px;
+        }
+
+        div[data-testid="stTabs"] div[role="tablist"] {
+            gap: 10px;
+            border-bottom: 1px solid rgba(148,163,184,0.22);
+            padding-bottom: 10px;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] {
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(148,163,184,0.26);
+            border-radius: 999px;
+            padding: 10px 18px;
+            color: #475569;
+            font-weight: 850;
+            box-shadow: 0 10px 24px rgba(15,23,42,0.045);
+            transition: all 0.16s ease;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"]:hover {
+            background: linear-gradient(135deg, rgba(239,246,255,0.98), rgba(245,243,255,0.98));
+            border-color: rgba(37,99,235,0.35);
+            color: #1d4ed8;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+            background: linear-gradient(135deg,#2563eb,#7c3aed);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 14px 32px rgba(37,99,235,0.20);
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] p {
+            font-size: 0.92rem;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        div[data-testid="stTabs"] div[role="tabpanel"] {
+            padding-top: 18px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    create_tab, manage_tab, audit_tab = st.tabs(
+        [
+            "➕ Create Admin",
+            "👥 Manage Accounts",
+            "📜 Admin Audit Log",
+        ]
+    )
+
+    with create_tab:
+        with st.container(border=True):
+            st.markdown("### Create Admin Account")
+            st.caption(
+                "Create a new administrative account for platform operations. "
+                "Use a temporary password and ask the recipient to change it after first login."
+            )
+
+            guide_1, guide_2, guide_3 = st.columns(3)
+
+            with guide_1:
+                with st.container(border=True):
+                    st.markdown("#### Access Level")
+                    st.write("Choose between a standard admin and a super admin account.")
+
+            with guide_2:
+                with st.container(border=True):
+                    st.markdown("#### Security")
+                    st.write("Use a temporary password with at least 8 characters.")
+
+            with guide_3:
+                with st.container(border=True):
+                    st.markdown("#### Good Practice")
+                    st.write("Only grant admin access to trusted team members.")
+
+            st.divider()
+
+            with st.form("super_admin_create_account_form", clear_on_submit=False):
+                c1, c2 = st.columns(2)
+
+                with c1:
+                    new_name = st.text_input(
+                        "Full name",
+                        placeholder="Example: Admin User",
+                    )
+                    new_email = st.text_input(
+                        "Email",
+                        placeholder="admin@example.com",
+                    )
+
+                with c2:
+                    new_role = st.selectbox(
+                        "Role",
+                        ["admin", "super_admin"],
+                        format_func=lambda r: "Admin" if r == "admin" else "Super Admin",
+                    )
+                    new_password = st.text_input(
+                        "Temporary password",
+                        type="password",
+                        placeholder="At least 8 characters",
+                    )
+
+                if new_role == "admin":
+                    st.info("Selected role: Admin ? can access operational admin dashboard features.")
+                else:
+                    st.warning(
+                        "Selected role: Super Admin ? can manage admin accounts, roles, "
+                        "activation status, and audit access."
+                    )
+
+                confirm_create = st.checkbox(
+                    "I confirm this account should receive administrative access."
+                )
+
+                submitted = st.form_submit_button(
+                    "Create Admin Account",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+        if submitted:
+            if not confirm_create:
+                st.error("Please confirm administrative access before creating the account.")
+            else:
+                try:
+                    created = create_admin_account(
+                        actor_user_id=current_admin_id,
+                        actor_email=current_admin_email,
+                        name=new_name,
+                        email=new_email,
+                        password=new_password,
+                        role=new_role,
+                    )
+                    st.success(
+                        f"{new_role.replace('_', ' ').title()} account created for {created.email}."
+                    )
+                    st.rerun()
+                except AuthError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"Could not create account: {exc}")
+
+    with manage_tab:
+        st.markdown("### Manage Accounts")
+        st.caption(
+            "Search users, review account status, update roles, and activate or deactivate accounts. "
+            "Safety checks prevent removing the last active super admin."
+        )
+
+        if not users:
+            st.info("No user accounts found.")
+        else:
+            users_df = pd.DataFrame(users)
+            expected_cols = ["id", "name", "email", "role", "is_active", "created_at", "last_login_at"]
+
+            for col in expected_cols:
+                if col not in users_df.columns:
+                    users_df[col] = ""
+
+            st.markdown(
+                """
+                <style>
+                .vf-account-search-title {
+                    font-size: 0.95rem;
+                    font-weight: 950;
+                    color: #0f172a;
+                    margin-top: 8px;
+                    margin-bottom: 4px;
+                }
+                .vf-account-search-help {
+                    color: #64748b;
+                    font-size: 0.86rem;
+                    line-height: 1.5;
+                    margin-bottom: 8px;
+                }
+                </style>
+                <div class="vf-account-search-title">Account Search</div>
+                <div class="vf-account-search-help">
+                    Start typing to filter accounts by name, email, or role.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if st_keyup is not None:
+                account_search_raw = st_keyup(
+                    "",
+                    placeholder="Search accounts...",
+                    key="super_admin_account_search_live",
+                    debounce=350,
+                    label_visibility="collapsed",
+                )
+            else:
+                account_search_raw = st.text_input(
+                    "",
+                    placeholder="Search accounts...",
+                    key="super_admin_account_search",
+                    label_visibility="collapsed",
+                )
+
+            account_search = (account_search_raw or "").strip().lower()
+
+            visible_df = users_df.copy()
+            if account_search:
+                visible_df = visible_df[
+                    visible_df["name"].astype(str).str.lower().str.contains(account_search, na=False)
+                    | visible_df["email"].astype(str).str.lower().str.contains(account_search, na=False)
+                    | visible_df["role"].astype(str).str.lower().str.contains(account_search, na=False)
+                ]
+
+            def _role_label(value):
+                value = str(value or "user")
+                return value.replace("_", " ").title()
+
+            def _role_class(value):
+                value = str(value or "").lower()
+                if value == "super_admin":
+                    return "super"
+                if value == "admin":
+                    return "admin"
+                return "user"
+
+            def _active_class(value):
+                return "active" if bool(value) else "inactive"
+
+            def _active_label(value):
+                return "Active" if bool(value) else "Inactive"
+
+            def _short_date(value):
+                value = str(value or "").strip()
+                if not value or value.lower() in {"none", "nan", "nat"}:
+                    return "Never"
+                return value.replace("T", " ")[:16]
+
+            table_rows = []
+            for index, row in enumerate(visible_df.to_dict("records"), start=1):
+                name = html.escape(str(row.get("name") or "Unnamed User"))
+                email = html.escape(str(row.get("email") or "No email"))
+                role = str(row.get("role") or "user")
+                role_label = html.escape(_role_label(role))
+                role_class = _role_class(role)
+                active_label = html.escape(_active_label(row.get("is_active")))
+                active_class = _active_class(row.get("is_active"))
+                created = html.escape(_short_date(row.get("created_at")))
+                last_login = html.escape(_short_date(row.get("last_login_at")))
+
+                table_rows.append(
+                    f"""
+                    <tr>
+                        <td class="rank-cell">{index:02d}</td>
+                        <td>
+                            <div class="account-name">{name}</div>
+                            <div class="account-email">{email}</div>
+                        </td>
+                        <td><span class="role-badge {role_class}">{role_label}</span></td>
+                        <td><span class="status-badge {active_class}">{active_label}</span></td>
+                        <td><span class="date-pill">{created}</span></td>
+                        <td><span class="date-pill">{last_login}</span></td>
+                    </tr>
+                    """
+                )
+
+            if not table_rows:
+                table_rows.append(
+                    """
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">No accounts match the current search.</div>
+                        </td>
+                    </tr>
+                    """
+                )
+
+            table_template = """
+            <!doctype html>
+            <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        background: transparent;
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                        color: #0f172a;
+                    }
+                    .vf-account-table-card {
+                        background:
+                            radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 30%),
+                            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                        border: 1px solid rgba(148,163,184,0.28);
+                        border-radius: 26px;
+                        box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                        padding: 22px;
+                        overflow: hidden;
+                    }
+                    .vf-account-table-head {
+                        display: flex;
+                        justify-content: space-between;
+                        gap: 18px;
+                        align-items: flex-start;
+                        margin-bottom: 18px;
+                        padding-bottom: 16px;
+                        border-bottom: 1px solid rgba(148,163,184,0.20);
+                    }
+                    .vf-table-title {
+                        font-size: 1.08rem;
+                        font-weight: 950;
+                        color: #0f172a;
+                        letter-spacing: -0.02em;
+                    }
+                    .vf-table-subtitle {
+                        color: #64748b;
+                        font-size: 0.86rem;
+                        margin-top: 5px;
+                        line-height: 1.5;
+                    }
+                    .vf-table-count {
+                        background: linear-gradient(135deg,#2563eb,#7c3aed);
+                        color: white;
+                        border-radius: 999px;
+                        padding: 8px 14px;
+                        font-size: 0.78rem;
+                        font-weight: 900;
+                        white-space: nowrap;
+                        box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                    }
+                    .vf-table-wrap {
+                        overflow-x: auto;
+                        border-radius: 18px;
+                        border: 1px solid rgba(226,232,240,0.95);
+                    }
+                    .vf-account-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        min-width: 980px;
+                        background: white;
+                    }
+                    .vf-account-table th {
+                        background: #f8fafc;
+                        color: #475569;
+                        font-size: 0.72rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.06em;
+                        font-weight: 900;
+                        text-align: left;
+                        padding: 14px 14px;
+                        border-bottom: 1px solid #e2e8f0;
+                        white-space: nowrap;
+                    }
+                    .vf-account-table td {
+                        padding: 14px;
+                        border-bottom: 1px solid #eef2f7;
+                        color: #0f172a;
+                        font-size: 0.9rem;
+                        vertical-align: middle;
+                    }
+                    .vf-account-table tr:hover td {
+                        background: #f8fbff;
+                    }
+                    .rank-cell {
+                        color: #94a3b8 !important;
+                        font-weight: 900;
+                        width: 56px;
+                    }
+                    .account-name {
+                        font-weight: 900;
+                        color: #0f172a;
+                        line-height: 1.25;
+                    }
+                    .account-email {
+                        margin-top: 4px;
+                        color: #64748b;
+                        font-size: 0.78rem;
+                        line-height: 1.35;
+                    }
+                    .role-badge,
+                    .status-badge,
+                    .date-pill {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 999px;
+                        padding: 7px 11px;
+                        font-size: 0.76rem;
+                        font-weight: 900;
+                        white-space: nowrap;
+                        border: 1px solid transparent;
+                    }
+                    .role-badge.super {
+                        background: #f5f3ff;
+                        color: #6d28d9;
+                        border-color: #ddd6fe;
+                    }
+                    .role-badge.admin {
+                        background: #eff6ff;
+                        color: #1d4ed8;
+                        border-color: #bfdbfe;
+                    }
+                    .role-badge.user {
+                        background: #f1f5f9;
+                        color: #475569;
+                        border-color: #e2e8f0;
+                    }
+                    .status-badge.active {
+                        background: #ecfdf5;
+                        color: #047857;
+                        border-color: #a7f3d0;
+                    }
+                    .status-badge.inactive {
+                        background: #fef2f2;
+                        color: #b91c1c;
+                        border-color: #fecaca;
+                    }
+                    .date-pill {
+                        background: #f8fafc;
+                        color: #475569;
+                        border-color: #e2e8f0;
+                    }
+                    .empty-state {
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        color: #64748b;
+                        border-radius: 16px;
+                        padding: 16px;
+                        font-weight: 900;
+                        text-align: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="vf-account-table-card">
+                    <div class="vf-account-table-head">
+                        <div>
+                            <div class="vf-table-title">Account Directory</div>
+                            <div class="vf-table-subtitle">Searchable overview of platform users, roles, account status, and recent login activity.</div>
+                        </div>
+                        <div class="vf-table-count">__COUNT__ Accounts</div>
+                    </div>
+                    <div class="vf-table-wrap">
+                        <table class="vf-account-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Account</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                __ROWS__
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            table_html = (
+                table_template
+                .replace("__COUNT__", str(len(visible_df)))
+                .replace("__ROWS__", "".join(table_rows))
+            )
+
+            table_height = min(720, max(340, 180 + (len(visible_df) * 62)))
+            components.html(table_html, height=table_height, scrolling=True)
+
+            st.markdown("#### Update Selected Account")
+
+            visible_records = visible_df.to_dict("records")
+            if not visible_records:
+                st.info("No account is available to update for the current search.")
+            else:
+                account_options = {
+                    (
+                        f"{u.get('name') or 'Unnamed User'} | "
+                        f"{u.get('email') or 'No email'} | "
+                        f"{str(u.get('role') or 'user').replace('_', ' ').title()}"
+                    ): u
+                    for u in visible_records
+                }
+
+                selected_label = st.selectbox(
+                    "Select account to update",
+                    list(account_options.keys()),
+                    key="super_admin_selected_account",
+                )
+
+                selected_user = account_options[selected_label]
+                selected_role_label = str(selected_user.get("role") or "user").replace("_", " ").title()
+                selected_status_label = "Active" if selected_user.get("is_active") else "Inactive"
+
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:linear-gradient(135deg,rgba(239,246,255,0.95),rgba(245,243,255,0.95));
+                        border:1px solid rgba(96,165,250,0.24);
+                        border-radius:20px;
+                        padding:16px 18px;
+                        margin:12px 0 16px 0;">
+                        <div style="font-size:0.78rem;font-weight:900;color:#2563eb;text-transform:uppercase;letter-spacing:0.06em;">
+                            Selected Account
+                        </div>
+                        <div style="font-size:1.1rem;font-weight:950;color:#0f172a;margin-top:6px;">
+                            {selected_user.get('name') or 'Unnamed User'}
+                        </div>
+                        <div style="color:#64748b;font-size:0.9rem;margin-top:3px;">
+                            {selected_user.get('email') or 'No email'} ? {selected_role_label} ? {selected_status_label}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                control_1, control_2 = st.columns(2)
+
+                with control_1:
+                    with st.container(border=True):
+                        st.markdown("##### Role")
+                        st.caption("Change the account permission level.")
+                        selected_new_role = st.selectbox(
+                            "New role",
+                            ["user", "admin", "super_admin"],
+                            index=["user", "admin", "super_admin"].index(selected_user.get("role", "user"))
+                            if selected_user.get("role", "user") in ["user", "admin", "super_admin"]
+                            else 0,
+                            format_func=lambda r: r.replace("_", " ").title(),
+                            key=f"role_for_{selected_user.get('id')}",
+                            label_visibility="collapsed",
+                        )
+
+                with control_2:
+                    with st.container(border=True):
+                        st.markdown("##### Account Status")
+                        st.caption("Control whether this account can sign in.")
+                        selected_active = st.toggle(
+                            "Account is active",
+                            value=bool(selected_user.get("is_active")),
+                            key=f"active_for_{selected_user.get('id')}",
+                        )
+
+                apply_changes = st.button(
+                    "Apply Account Changes",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"apply_account_changes_{selected_user.get('id')}",
+                )
+
+                if apply_changes:
+                    try:
+                        changed = False
+
+                        if selected_new_role != selected_user.get("role"):
+                            update_user_role(
+                                actor_user_id=current_admin_id,
+                                actor_email=current_admin_email,
+                                target_user_id=int(selected_user.get("id")),
+                                new_role=selected_new_role,
+                            )
+                            changed = True
+
+                        if bool(selected_active) != bool(selected_user.get("is_active")):
+                            set_user_active_status(
+                                actor_user_id=current_admin_id,
+                                actor_email=current_admin_email,
+                                target_user_id=int(selected_user.get("id")),
+                                active=bool(selected_active),
+                            )
+                            changed = True
+
+                        if changed:
+                            st.success("Account changes saved.")
+                            st.rerun()
+                        else:
+                            st.info("No changes were made.")
+
+                    except AuthError as exc:
+                        st.error(str(exc))
+                    except Exception as exc:
+                        st.error(f"Could not update account: {exc}")
+
+    with audit_tab:
+        st.markdown("### Admin Audit Log")
+        st.caption("Recent super-admin account management actions, including account creation, role changes, and access updates.")
+
+        audit_rows = list_admin_audit_logs(limit=150)
+
+        def _audit_action_label(value):
+            value = str(value or "").strip().lower()
+            return {
+                "create_account": "Created Account",
+                "change_role": "Changed Role",
+                "activate_account": "Activated Account",
+                "deactivate_account": "Deactivated Account",
+            }.get(value, value.replace("_", " ").title() or "Account Action")
+
+        def _audit_action_class(value):
+            value = str(value or "").strip().lower()
+            if value == "create_account":
+                return "blue"
+            if value == "change_role":
+                return "purple"
+            if value == "activate_account":
+                return "good"
+            if value == "deactivate_account":
+                return "bad"
+            return "muted"
+
+        def _audit_time(value):
+            value = str(value or "").strip()
+            if not value or value.lower() in {"none", "nan", "nat"}:
+                return "Not recorded"
+            return value.replace("T", " ")[:19]
+
+        if not audit_rows:
+            st.info("No admin account actions have been recorded yet.")
+        else:
+            table_rows = []
+
+            for index, row in enumerate(audit_rows, start=1):
+                time_value = html.escape(_audit_time(row.get("created_at")))
+                actor = html.escape(str(row.get("actor_email") or "System"))
+                target = html.escape(str(row.get("target_email") or "No target"))
+                action_raw = row.get("action")
+                action_label = html.escape(_audit_action_label(action_raw))
+                action_class = _audit_action_class(action_raw)
+                details = html.escape(str(row.get("details") or "No additional details."))
+
+                table_rows.append(
+                    f"""
+                    <tr>
+                        <td class="rank-cell">{index:02d}</td>
+                        <td><span class="time-pill">{time_value}</span></td>
+                        <td>
+                            <div class="actor-name">{actor}</div>
+                            <div class="actor-sub">Performed action</div>
+                        </td>
+                        <td><span class="action-badge {action_class}">{action_label}</span></td>
+                        <td>
+                            <div class="target-name">{target}</div>
+                            <div class="target-sub">Target account</div>
+                        </td>
+                        <td><div class="details-cell">{details}</div></td>
+                    </tr>
+                    """
+                )
+
+            table_template = """
+            <!doctype html>
+            <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        background: transparent;
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                        color: #0f172a;
+                    }
+                    .vf-audit-table-card {
+                        background:
+                            radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 30%),
+                            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+                        border: 1px solid rgba(148,163,184,0.28);
+                        border-radius: 26px;
+                        box-shadow: 0 22px 55px rgba(15,23,42,0.08);
+                        padding: 22px;
+                        overflow: hidden;
+                    }
+                    .vf-audit-table-head {
+                        display: flex;
+                        justify-content: space-between;
+                        gap: 18px;
+                        align-items: flex-start;
+                        margin-bottom: 18px;
+                        padding-bottom: 16px;
+                        border-bottom: 1px solid rgba(148,163,184,0.20);
+                    }
+                    .vf-table-title {
+                        font-size: 1.08rem;
+                        font-weight: 950;
+                        color: #0f172a;
+                        letter-spacing: -0.02em;
+                    }
+                    .vf-table-subtitle {
+                        color: #64748b;
+                        font-size: 0.86rem;
+                        margin-top: 5px;
+                        line-height: 1.5;
+                    }
+                    .vf-table-count {
+                        background: linear-gradient(135deg,#2563eb,#7c3aed);
+                        color: white;
+                        border-radius: 999px;
+                        padding: 8px 14px;
+                        font-size: 0.78rem;
+                        font-weight: 900;
+                        white-space: nowrap;
+                        box-shadow: 0 12px 28px rgba(37,99,235,0.22);
+                    }
+                    .vf-table-wrap {
+                        overflow-x: auto;
+                        border-radius: 18px;
+                        border: 1px solid rgba(226,232,240,0.95);
+                    }
+                    .vf-audit-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        min-width: 1180px;
+                        background: white;
+                    }
+                    .vf-audit-table th {
+                        background: #f8fafc;
+                        color: #475569;
+                        font-size: 0.72rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.06em;
+                        font-weight: 900;
+                        text-align: left;
+                        padding: 14px 14px;
+                        border-bottom: 1px solid #e2e8f0;
+                        white-space: nowrap;
+                    }
+                    .vf-audit-table td {
+                        padding: 14px;
+                        border-bottom: 1px solid #eef2f7;
+                        color: #0f172a;
+                        font-size: 0.9rem;
+                        vertical-align: middle;
+                    }
+                    .vf-audit-table tr:hover td {
+                        background: #f8fbff;
+                    }
+                    .rank-cell {
+                        color: #94a3b8 !important;
+                        font-weight: 900;
+                        width: 56px;
+                    }
+                    .actor-name,
+                    .target-name {
+                        font-weight: 900;
+                        color: #0f172a;
+                        line-height: 1.25;
+                    }
+                    .actor-sub,
+                    .target-sub {
+                        margin-top: 4px;
+                        color: #64748b;
+                        font-size: 0.76rem;
+                        line-height: 1.35;
+                    }
+                    .time-pill,
+                    .action-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        border-radius: 999px;
+                        padding: 7px 11px;
+                        font-size: 0.76rem;
+                        font-weight: 900;
+                        white-space: nowrap;
+                        border: 1px solid transparent;
+                    }
+                    .time-pill {
+                        background: #f8fafc;
+                        color: #475569;
+                        border-color: #e2e8f0;
+                    }
+                    .action-badge.good {
+                        background: #ecfdf5;
+                        color: #047857;
+                        border-color: #a7f3d0;
+                    }
+                    .action-badge.blue {
+                        background: #eff6ff;
+                        color: #1d4ed8;
+                        border-color: #bfdbfe;
+                    }
+                    .action-badge.purple {
+                        background: #f5f3ff;
+                        color: #6d28d9;
+                        border-color: #ddd6fe;
+                    }
+                    .action-badge.bad {
+                        background: #fef2f2;
+                        color: #b91c1c;
+                        border-color: #fecaca;
+                    }
+                    .action-badge.muted {
+                        background: #f1f5f9;
+                        color: #475569;
+                        border-color: #e2e8f0;
+                    }
+                    .details-cell {
+                        color: #334155;
+                        font-size: 0.82rem;
+                        font-weight: 750;
+                        max-width: 420px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="vf-audit-table-card">
+                    <div class="vf-audit-table-head">
+                        <div>
+                            <div class="vf-table-title">Admin Activity Trail</div>
+                            <div class="vf-table-subtitle">Readable audit history of privileged account management actions performed by super admins.</div>
+                        </div>
+                        <div class="vf-table-count">__COUNT__ Events</div>
+                    </div>
+                    <div class="vf-table-wrap">
+                        <table class="vf-audit-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Time</th>
+                                    <th>Actor</th>
+                                    <th>Action</th>
+                                    <th>Target</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                __ROWS__
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            table_html = (
+                table_template
+                .replace("__COUNT__", str(len(audit_rows)))
+                .replace("__ROWS__", "".join(table_rows))
+            )
+
+            table_height = min(720, max(340, 180 + (len(audit_rows) * 62)))
+            components.html(table_html, height=table_height, scrolling=True)
+
+
+# ---------------------------------------------------------------------
+# 9. Logs
 # ---------------------------------------------------------------------
 
 elif selected_section == "Logs":

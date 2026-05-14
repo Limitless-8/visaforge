@@ -1,4 +1,4 @@
-﻿"""
+"""
 services/auth_service.py
 ------------------------
 Authentication service. Thin wrapper around bcrypt + SQLAlchemy.
@@ -30,7 +30,7 @@ from sqlalchemy import select
 
 from config.settings import settings
 from db.database import session_scope
-from models.user import User
+from models.user import AdminAuditLog, User
 from utils.helpers import utcnow
 from utils.logger import get_logger
 
@@ -44,7 +44,7 @@ log = get_logger(__name__)
 # ---------- session keys (kept constant so pages import them) -------------
 
 SESSION_USER_KEY = "auth_user"       # full dict of the logged-in user
-SESSION_ROLE_KEY = "auth_role"       # "user" | "admin"
+SESSION_ROLE_KEY = "auth_role"       # "user" | "admin" | "super_admin"
 SESSION_USER_ID_KEY = "auth_user_id"
 
 
@@ -109,7 +109,7 @@ def register_user(
         raise AuthError("Please provide your name.")
     _validate_email(email)
     _validate_password(password)
-    if role not in ("user", "admin"):
+    if role not in ("user", "admin", "super_admin"):
         raise AuthError("Invalid role.")
 
     with session_scope() as db:
@@ -176,7 +176,7 @@ def promote_to_admin(email: str) -> bool:
         user = db.scalar(select(User).where(User.email == email))
         if user is None:
             return False
-        if user.role == "admin":
+        if user.role in ("admin", "super_admin"):
             return False
         user.role = "admin"
         log.info("Promoted to admin: id=%s email=%s", user.id, user.email)
@@ -314,7 +314,230 @@ def is_logged_in() -> bool:
 
 def is_admin() -> bool:
     import streamlit as st
-    return (st.session_state.get(SESSION_ROLE_KEY) or "").lower() == "admin"
+    return (st.session_state.get(SESSION_ROLE_KEY) or "").lower() in {"admin", "super_admin"}
+
+
+def is_super_admin() -> bool:
+    import streamlit as st
+    return (st.session_state.get(SESSION_ROLE_KEY) or "").lower() == "super_admin"
+
+
+
+def _root_super_admin_email() -> str:
+    """Return the protected/root super admin email.
+
+    This is normally the ADMIN_EMAIL used to bootstrap the first admin.
+    Fallback keeps local/demo deployments protected.
+    """
+    email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+    if not email:
+        try:
+            email = (settings.as_dict().get("ADMIN_EMAIL") or "").strip().lower()
+        except Exception:
+            email = ""
+    return email or "admin@visaforge.local"
+
+
+def _is_root_super_admin_email(email: str | None) -> bool:
+    return (email or "").strip().lower() == _root_super_admin_email()
+
+
+# ---------- super-admin account management --------------------------------
+
+def _public_user_row(user: User) -> dict:
+    return user.public_dict()
+
+
+def count_active_super_admins() -> int:
+    with session_scope() as db:
+        rows = list(db.scalars(
+            select(User).where(
+                (User.role == "super_admin") & (User.is_active.is_(True))
+            )
+        ))
+        return len(rows)
+
+
+def log_admin_action(
+    *,
+    actor_user_id: int | None,
+    actor_email: str | None,
+    action: str,
+    target_user_id: int | None = None,
+    target_email: str | None = None,
+    details: str | None = None,
+) -> None:
+    with session_scope() as db:
+        db.add(
+            AdminAuditLog(
+                actor_user_id=actor_user_id,
+                actor_email=actor_email,
+                action=action,
+                target_user_id=target_user_id,
+                target_email=target_email,
+                details=details,
+            )
+        )
+
+
+def list_account_management_users() -> list[dict]:
+    with session_scope() as db:
+        rows = list(db.scalars(select(User).order_by(User.created_at.desc())))
+        return [_public_user_row(row) for row in rows]
+
+
+def list_admin_audit_logs(limit: int = 100) -> list[dict]:
+    with session_scope() as db:
+        rows = list(db.scalars(
+            select(AdminAuditLog)
+            .order_by(AdminAuditLog.created_at.desc())
+            .limit(limit)
+        ))
+        return [
+            {
+                "id": row.id,
+                "actor_user_id": row.actor_user_id,
+                "actor_email": row.actor_email,
+                "action": row.action,
+                "target_user_id": row.target_user_id,
+                "target_email": row.target_email,
+                "details": row.details,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ]
+
+
+def create_admin_account(
+    *,
+    actor_user_id: int | None,
+    actor_email: str | None,
+    name: str,
+    email: str,
+    password: str,
+    role: str,
+) -> User:
+    if role not in ("admin", "super_admin"):
+        raise AuthError("Only admin or super admin accounts can be created here.")
+
+    if role == "super_admin" and not _is_root_super_admin_email(actor_email):
+        raise AuthError("Only the root super admin can create another super admin account.")
+
+    user = register_user(
+        name=name,
+        email=email,
+        password=password,
+        role=role,
+    )
+
+    log_admin_action(
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
+        action="create_account",
+        target_user_id=user.id,
+        target_email=user.email,
+        details=f"Created {role} account.",
+    )
+    return user
+
+
+def update_user_role(
+    *,
+    actor_user_id: int | None,
+    actor_email: str | None,
+    target_user_id: int,
+    new_role: str,
+) -> bool:
+    if new_role not in ("user", "admin", "super_admin"):
+        raise AuthError("Invalid role selected.")
+
+    actor_is_root = _is_root_super_admin_email(actor_email)
+
+    with session_scope() as db:
+        target = db.get(User, target_user_id)
+        if target is None:
+            raise AuthError("Target account not found.")
+
+        old_role = target.role or "user"
+        target_email = target.email
+
+        if _is_root_super_admin_email(target_email) and new_role != "super_admin":
+            raise AuthError("The root super admin account cannot be demoted.")
+
+        if old_role == "super_admin" and new_role != "super_admin" and not actor_is_root:
+            raise AuthError("Only the root super admin can demote another super admin.")
+
+        if new_role == "super_admin" and old_role != "super_admin" and not actor_is_root:
+            raise AuthError("Only the root super admin can promote accounts to super admin.")
+
+        if old_role == "super_admin" and new_role != "super_admin":
+            active_super_admins = db.scalars(
+                select(User).where(
+                    (User.role == "super_admin") & (User.is_active.is_(True))
+                )
+            ).all()
+            if len(active_super_admins) <= 1:
+                raise AuthError("You cannot demote the only active super admin.")
+
+        target.role = new_role
+
+    log_admin_action(
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
+        action="change_role",
+        target_user_id=target_user_id,
+        target_email=target_email,
+        details=f"Role changed from {old_role} to {new_role}.",
+    )
+    return True
+
+
+def set_user_active_status(
+    *,
+    actor_user_id: int | None,
+    actor_email: str | None,
+    target_user_id: int,
+    active: bool,
+) -> bool:
+    if actor_user_id == target_user_id and not active:
+        raise AuthError("You cannot deactivate your own account.")
+
+    actor_is_root = _is_root_super_admin_email(actor_email)
+
+    with session_scope() as db:
+        target = db.get(User, target_user_id)
+        if target is None:
+            raise AuthError("Target account not found.")
+
+        target_email = target.email
+
+        if _is_root_super_admin_email(target_email) and not active:
+            raise AuthError("The root super admin account cannot be deactivated.")
+
+        if target.role == "super_admin" and not active and not actor_is_root:
+            raise AuthError("Only the root super admin can deactivate another super admin.")
+
+        if target.role == "super_admin" and not active:
+            active_super_admins = db.scalars(
+                select(User).where(
+                    (User.role == "super_admin") & (User.is_active.is_(True))
+                )
+            ).all()
+            if len(active_super_admins) <= 1:
+                raise AuthError("You cannot deactivate the only active super admin.")
+
+        target.is_active = bool(active)
+
+    log_admin_action(
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
+        action="activate_account" if active else "deactivate_account",
+        target_user_id=target_user_id,
+        target_email=target_email,
+        details=f"Account active status set to {active}.",
+    )
+    return True
+
 
 
 # ---------- bootstrap -----------------------------------------------------
@@ -342,9 +565,9 @@ def seed_admin_from_env() -> Optional[int]:
     with session_scope() as db:
         existing = db.scalar(select(User).where(User.email == email))
         if existing is not None:
-            if existing.role != "admin":
-                existing.role = "admin"
-                log.info("Existing user %s upgraded to admin via env.", email)
+            if existing.role != "super_admin":
+                existing.role = "super_admin"
+                log.info("Existing user %s upgraded to super_admin via env.", email)
             return None
 
     try:
@@ -352,9 +575,9 @@ def seed_admin_from_env() -> Optional[int]:
             name="VisaForge Admin",
             email=email,
             password=password,
-            role="admin",
+            role="super_admin",
         )
-        log.info("Seeded initial admin: %s", email)
+        log.info("Seeded initial super admin: %s", email)
         return user.id
     except AuthError as e:
         log.warning("Could not seed admin: %s", e)

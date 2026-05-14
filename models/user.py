@@ -22,14 +22,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.orm import Base
 from utils.helpers import utcnow
 
 
-UserRole = Literal["user", "admin"]
+UserRole = Literal["user", "admin", "super_admin"]
 
 
 class User(Base):
@@ -47,7 +47,10 @@ class User(Base):
     )
 
     def is_admin(self) -> bool:
-        return (self.role or "").lower() == "admin"
+        return (self.role or "").lower() in {"admin", "super_admin"}
+
+    def is_super_admin(self) -> bool:
+        return (self.role or "").lower() == "super_admin"
 
     def public_dict(self) -> dict:
         """Safe-to-render dict (no password hash)."""
@@ -62,3 +65,18 @@ class User(Base):
             "last_login_at": self.last_login_at.isoformat()
             if self.last_login_at else None,
         }
+
+
+class AdminAuditLog(Base):
+    """Audit trail for super-admin account management actions."""
+
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    actor_email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    action: Mapped[str] = mapped_column(String(80))
+    target_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    target_email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
