@@ -540,6 +540,145 @@ def set_user_active_status(
 
 
 
+def soft_delete_account(
+    *,
+    actor_user_id: int | None,
+    actor_email: str | None,
+    target_user_id: int,
+) -> bool:
+    """Safely delete/deactivate an account without breaking historical records.
+
+    This is intentionally a soft deletion:
+    - the account is deactivated
+    - personal identity fields are anonymised
+    - the role is reduced to user
+    - password hash is replaced with a random unusable hash
+    - an audit log entry is recorded
+    """
+    if actor_user_id == target_user_id:
+        raise AuthError("You cannot delete your own account.")
+
+    actor_is_root = _is_root_super_admin_email(actor_email)
+
+    with session_scope() as db:
+        target = db.get(User, target_user_id)
+        if target is None:
+            raise AuthError("Target account not found.")
+
+        old_email = target.email
+        old_role = target.role or "user"
+
+        if _is_root_super_admin_email(old_email):
+            raise AuthError("The root super admin account cannot be deleted.")
+
+        if old_role == "super_admin" and not actor_is_root:
+            raise AuthError("Only the root super admin can delete another super admin account.")
+
+        anonymised_email = f"deleted_user_{target.id}@deleted.visaforge.local"
+
+        target.name = f"Deleted User {target.id}"
+        target.email = anonymised_email
+        target.password_hash = _hash_password(secrets.token_urlsafe(32))
+        target.role = "user"
+        target.is_active = False
+        target.last_login_at = None
+
+    log_admin_action(
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
+        action="soft_delete_account",
+        target_user_id=target_user_id,
+        target_email=old_email,
+        details=f"Account safely deactivated and anonymised. Previous role: {old_role}.",
+    )
+    return True
+
+
+
+def self_delete_current_user(user_id: int | None) -> bool:
+    """Allow an applicant/user to safely delete their own account.
+
+    This removes applicant-owned records where safely identifiable, anonymises
+    the user account, disables sign-in, and keeps audit traceability.
+    Admin and super-admin accounts must be managed by super-admin controls.
+    """
+    if user_id is None:
+        raise AuthError("No active user session found.")
+
+    from pathlib import Path as _Path
+    from models.orm import (
+        CaseDocument,
+        EligibilityResult,
+        RoutePlan,
+        SavedScholarship,
+        UserProfile,
+    )
+
+    with session_scope() as db:
+        user = db.get(User, user_id)
+        if user is None:
+            raise AuthError("Account not found.")
+
+        old_email = user.email
+        old_role = (user.role or "user").lower()
+
+        if old_role in ("admin", "super_admin") or _is_root_super_admin_email(old_email):
+            raise AuthError("Administrative accounts cannot be deleted from the applicant profile page.")
+
+        profiles = list(db.scalars(select(UserProfile).where(UserProfile.user_id == user_id)))
+
+        removed_profiles = len(profiles)
+        removed_documents = 0
+
+        for profile in profiles:
+            profile_id = profile.id
+
+            for row in list(db.scalars(select(EligibilityResult).where(EligibilityResult.profile_id == profile_id))):
+                db.delete(row)
+
+            for row in list(db.scalars(select(SavedScholarship).where(SavedScholarship.profile_id == profile_id))):
+                db.delete(row)
+
+            for row in list(db.scalars(select(RoutePlan).where(RoutePlan.profile_id == profile_id))):
+                db.delete(row)
+
+            for row in list(db.scalars(select(CaseDocument).where(CaseDocument.profile_id == profile_id))):
+                stored_path = getattr(row, "stored_path", None)
+                if stored_path:
+                    try:
+                        p = _Path(stored_path)
+                        if p.exists() and p.is_file():
+                            p.unlink()
+                    except Exception:
+                        pass
+                removed_documents += 1
+                db.delete(row)
+
+            db.delete(profile)
+
+        anonymised_email = f"deleted_self_{user.id}@deleted.visaforge.local"
+        user.name = f"Deleted User {user.id}"
+        user.email = anonymised_email
+        user.password_hash = _hash_password(secrets.token_urlsafe(32))
+        user.role = "user"
+        user.is_active = False
+        user.last_login_at = None
+
+    log_admin_action(
+        actor_user_id=user_id,
+        actor_email=old_email,
+        action="user_self_delete_account",
+        target_user_id=user_id,
+        target_email=old_email,
+        details=(
+            f"User self-deleted account. Identity anonymised. "
+            f"Removed {removed_profiles} profile record(s) and {removed_documents} document record(s)."
+        ),
+    )
+    return True
+
+
+
 # ---------- bootstrap -----------------------------------------------------
 
 def seed_admin_from_env() -> Optional[int]:

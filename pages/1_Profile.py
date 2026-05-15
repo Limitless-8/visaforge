@@ -1,9 +1,14 @@
-﻿"""Page 1 — Passport Profile intake form (v0.2)."""
+"""Page 1 — Passport Profile intake form (v0.2)."""
 from __future__ import annotations
 
 from datetime import date, timedelta
 
 import streamlit as st
+
+try:
+    from st_keyup import st_keyup
+except Exception:
+    st_keyup = None
 
 from components.ui import (
     disclaimer,
@@ -14,7 +19,12 @@ from components.ui import (
 )
 from config.settings import settings
 from models.schemas import ProfileIn
-from services.auth_service import current_user_id
+from services.auth_service import (
+    current_user_id,
+    get_current_user,
+    logout_session,
+    self_delete_current_user,
+)
 from services.profile_service import (
     create_or_update_profile,
     get_profile,

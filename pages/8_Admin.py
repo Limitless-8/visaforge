@@ -40,6 +40,7 @@ from services.auth_service import (
     list_account_management_users,
     list_admin_audit_logs,
     set_user_active_status,
+    soft_delete_account,
     update_user_role,
 )
 from services.policy_service import (
@@ -3550,6 +3551,24 @@ elif selected_section == "Account Management":
     )
 
     with create_tab:
+        created_info = st.session_state.get("super_admin_created_account_success")
+        create_form_nonce = st.session_state.get("super_admin_create_form_nonce", 0)
+
+        if created_info:
+            @st.dialog("Admin account created")
+            def _created_account_dialog():
+                st.success("Administrative account created successfully.")
+                st.write(f"**Name:** {created_info.get('name')}")
+                st.write(f"**Email:** {created_info.get('email')}")
+                st.write(f"**Role:** {created_info.get('role')}")
+                st.info("Share the temporary password securely and ask the recipient to change it after first login.")
+
+                if st.button("Close", use_container_width=True):
+                    st.session_state.pop("super_admin_created_account_success", None)
+                    st.rerun()
+
+            _created_account_dialog()
+
         with st.container(border=True):
             st.markdown("### Create Admin Account")
             st.caption(
@@ -3576,50 +3595,54 @@ elif selected_section == "Account Management":
 
             st.divider()
 
-            with st.form("super_admin_create_account_form", clear_on_submit=False):
-                c1, c2 = st.columns(2)
+            c1, c2 = st.columns(2)
 
-                with c1:
-                    new_name = st.text_input(
-                        "Full name",
-                        placeholder="Example: Admin User",
-                    )
-                    new_email = st.text_input(
-                        "Email",
-                        placeholder="admin@example.com",
-                    )
-
-                with c2:
-                    new_role = st.selectbox(
-                        "Role",
-                        ["admin", "super_admin"],
-                        format_func=lambda r: "Admin" if r == "admin" else "Super Admin",
-                    )
-                    new_password = st.text_input(
-                        "Temporary password",
-                        type="password",
-                        placeholder="At least 8 characters",
-                    )
-
-                if new_role == "admin":
-                    st.info("Selected role: Admin ? can access operational admin dashboard features.")
-                else:
-                    st.warning(
-                        "Selected role: Super Admin ? can manage admin accounts, roles, "
-                        "activation status, and audit access."
-                    )
-
-                confirm_create = st.checkbox(
-                    "I confirm this account should receive administrative access."
+            with c1:
+                new_name = st.text_input(
+                    "Full name",
+                    placeholder="Example: Admin User",
+                    key=f"super_admin_create_name_{create_form_nonce}",
+                )
+                new_email = st.text_input(
+                    "Email",
+                    placeholder="admin@example.com",
+                    key=f"super_admin_create_email_{create_form_nonce}",
                 )
 
-                submitted = st.form_submit_button(
-                    "Create Admin Account",
-                    type="primary",
-                    use_container_width=True,
+            with c2:
+                new_role = st.selectbox(
+                    "Role",
+                    ["admin", "super_admin"],
+                    format_func=lambda r: "Admin" if r == "admin" else "Super Admin",
+                    key=f"super_admin_create_role_{create_form_nonce}",
+                )
+                new_password = st.text_input(
+                    "Temporary password",
+                    type="password",
+                    placeholder="At least 8 characters",
+                    key=f"super_admin_create_password_{create_form_nonce}",
                 )
 
-        if submitted:
+            if new_role == "admin":
+                st.info("Selected role: Admin | Can access operational admin dashboard features.")
+            else:
+                st.warning(
+                    "Selected role: Super Admin | Can manage admin accounts, roles, activation status, and audit logs."
+                )
+
+            confirm_create = st.checkbox(
+                "I confirm this account should receive administrative access.",
+                key=f"super_admin_create_confirm_{create_form_nonce}",
+            )
+
+            create_clicked = st.button(
+                "Create Admin Account",
+                type="primary",
+                use_container_width=True,
+                key=f"super_admin_create_button_{create_form_nonce}",
+            )
+
+        if create_clicked:
             if not confirm_create:
                 st.error("Please confirm administrative access before creating the account.")
             else:
@@ -3632,10 +3655,16 @@ elif selected_section == "Account Management":
                         password=new_password,
                         role=new_role,
                     )
-                    st.success(
-                        f"{new_role.replace('_', ' ').title()} account created for {created.email}."
-                    )
+
+                    st.session_state["super_admin_created_account_success"] = {
+                        "name": created.name,
+                        "email": created.email,
+                        "role": new_role.replace("_", " ").title(),
+                    }
+
+                    st.session_state["super_admin_create_form_nonce"] = create_form_nonce + 1
                     st.rerun()
+
                 except AuthError as exc:
                     st.error(str(exc))
                 except Exception as exc:
@@ -3657,6 +3686,21 @@ elif selected_section == "Account Management":
             for col in expected_cols:
                 if col not in users_df.columns:
                     users_df[col] = ""
+
+            users_df["is_deleted"] = (
+                users_df["email"].astype(str).str.endswith("@deleted.visaforge.local")
+                | users_df["name"].astype(str).str.startswith("Deleted User")
+            )
+
+            include_deleted_accounts = st.toggle(
+                "Include deleted accounts",
+                value=False,
+                key="super_admin_include_deleted_accounts",
+                help="Deleted accounts are hidden by default but retained for audit/accountability.",
+            )
+
+            if not include_deleted_accounts:
+                users_df = users_df[~users_df["is_deleted"]].copy()
 
             st.markdown(
                 """
@@ -3740,8 +3784,13 @@ elif selected_section == "Account Management":
                 role = str(row.get("role") or "user")
                 role_label = html.escape(_role_label(role))
                 role_class = _role_class(role)
-                active_label = html.escape(_active_label(row.get("is_active")))
-                active_class = _active_class(row.get("is_active"))
+                is_deleted = bool(row.get("is_deleted"))
+                if is_deleted:
+                    active_label = "Deleted"
+                    active_class = "deleted"
+                else:
+                    active_label = html.escape(_active_label(row.get("is_active")))
+                    active_class = _active_class(row.get("is_active"))
                 created = html.escape(_short_date(row.get("created_at")))
                 last_login = html.escape(_short_date(row.get("last_login_at")))
 
@@ -3912,6 +3961,11 @@ elif selected_section == "Account Management":
                         color: #b91c1c;
                         border-color: #fecaca;
                     }
+                    .status-badge.deleted {
+                        background: #111827;
+                        color: #ffffff;
+                        border-color: #020617;
+                    }
                     .date-pill {
                         background: #f8fafc;
                         color: #475569;
@@ -4008,7 +4062,7 @@ elif selected_section == "Account Management":
                             {selected_user.get('name') or 'Unnamed User'}
                         </div>
                         <div style="color:#64748b;font-size:0.9rem;margin-top:3px;">
-                            {selected_user.get('email') or 'No email'} ? {selected_role_label} ? {selected_status_label}
+                            {selected_user.get('email') or 'No email'} | {selected_role_label} | {selected_status_label}
                         </div>
                     </div>
                     """,
@@ -4082,6 +4136,185 @@ elif selected_section == "Account Management":
                     except Exception as exc:
                         st.error(f"Could not update account: {exc}")
 
+                st.markdown("#### Delete / Deactivate Account")
+
+                selected_email_value = str(selected_user.get("email") or "").strip()
+                selected_name_value = str(selected_user.get("name") or "Unnamed User").strip()
+                selected_role_value = str(selected_user.get("role") or "user").replace("_", " ").title()
+                selected_is_deleted = selected_email_value.endswith("@deleted.visaforge.local")
+
+                if selected_is_deleted:
+                    st.info(
+                        "This account has already been safely deleted/anonymised. "
+                        "Its login access is disabled and identity fields have been anonymised."
+                    )
+                else:
+                    with st.expander("Danger zone: safely delete this account", expanded=False):
+                        st.markdown(
+                            """
+                            <style>
+                            .vf-danger-panel {
+                                background:
+                                    radial-gradient(circle at top right, rgba(239,68,68,0.10), transparent 30%),
+                                    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(254,242,242,0.90));
+                                border: 1px solid rgba(239,68,68,0.22);
+                                border-radius: 22px;
+                                padding: 18px;
+                                margin: 6px 0 16px 0;
+                                box-shadow: 0 18px 42px rgba(127,29,29,0.06);
+                            }
+                            .vf-danger-title {
+                                font-size: 1rem;
+                                font-weight: 950;
+                                color: #991b1b;
+                                margin-bottom: 6px;
+                            }
+                            .vf-danger-text {
+                                color: #7f1d1d;
+                                font-size: 0.9rem;
+                                line-height: 1.65;
+                            }
+                            .vf-danger-account {
+                                background: rgba(255,255,255,0.86);
+                                border: 1px solid rgba(248,113,113,0.25);
+                                border-radius: 16px;
+                                padding: 12px 14px;
+                                margin-top: 12px;
+                                color: #0f172a;
+                                font-weight: 850;
+                            }
+                            .vf-danger-small {
+                                color: #64748b;
+                                font-size: 0.82rem;
+                                margin-top: 4px;
+                                font-weight: 700;
+                            }
+                            </style>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                        st.markdown(
+                            f"""
+                            <div class="vf-danger-panel">
+                                <div class="vf-danger-title">Safe account deletion</div>
+                                <div class="vf-danger-text">
+                                    This action disables sign-in, anonymises the account identity, resets the role to user,
+                                    replaces the password hash, and records an admin audit log entry. It does not delete
+                                    the protected root super admin account.
+                                </div>
+                                <div class="vf-danger-account">
+                                    {selected_name_value}
+                                    <div class="vf-danger-small">{selected_email_value} | {selected_role_value}</div>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                        st.warning(
+                            "Type the account email exactly. After that, you will review the final confirmation in a popup before deletion."
+                        )
+
+                        if st_keyup is not None:
+                            confirm_delete_email_raw = st_keyup(
+                                "Confirm account email",
+                                placeholder=selected_email_value,
+                                key=f"delete_confirm_email_live_{selected_user.get('id')}",
+                                debounce=250,
+                            )
+                        else:
+                            confirm_delete_email_raw = st.text_input(
+                                "Confirm account email",
+                                placeholder=selected_email_value,
+                                key=f"delete_confirm_email_{selected_user.get('id')}",
+                            )
+
+                        confirm_delete_email = (confirm_delete_email_raw or "").strip()
+                        delete_confirmed = (
+                            confirm_delete_email.lower()
+                            == selected_email_value.lower()
+                        )
+
+                        if delete_confirmed:
+                            st.success("Email confirmed. Review the final deletion details before continuing.")
+                        else:
+                            st.info("The review button will unlock only after the exact account email is entered.")
+
+                        @st.dialog("Confirm account deletion")
+                        def _confirm_soft_delete_dialog():
+                            st.markdown("### Final deletion confirmation")
+                            st.error(
+                                "This is a privileged administrative action. "
+                                "The account will be disabled and anonymised."
+                            )
+
+                            st.markdown(
+                                f"""
+                                **Account:** {selected_name_value}  
+                                **Email:** {selected_email_value}  
+                                **Current role:** {selected_role_value}
+                                """
+                            )
+
+                            st.write(
+                                "The system will disable sign-in, anonymise the account identity, "
+                                "reset the role to user, replace the password hash, and record an admin audit log entry."
+                            )
+
+                            final_confirm = st.checkbox(
+                                "I understand this action cannot be undone from the admin interface.",
+                                key=f"final_delete_confirm_{selected_user.get('id')}",
+                            )
+
+                            st.markdown(
+                                """
+                                <style>
+                                div[data-testid="stDialog"] div[data-testid="stButton"] > button {
+                                    background: linear-gradient(135deg,#dc2626,#ef4444) !important;
+                                    color: white !important;
+                                    border: 1px solid rgba(220,38,38,0.45) !important;
+                                    box-shadow: 0 16px 36px rgba(220,38,38,0.22) !important;
+                                    font-weight: 900 !important;
+                                }
+                                div[data-testid="stDialog"] div[data-testid="stButton"] > button:hover {
+                                    background: linear-gradient(135deg,#b91c1c,#dc2626) !important;
+                                    color: white !important;
+                                    border-color: rgba(185,28,28,0.55) !important;
+                                }
+                                </style>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                            if st.button(
+                                "Permanently confirm safe deletion",
+                                disabled=not final_confirm,
+                                use_container_width=True,
+                                key=f"final_soft_delete_account_{selected_user.get('id')}",
+                            ):
+                                try:
+                                    soft_delete_account(
+                                        actor_user_id=current_admin_id,
+                                        actor_email=current_admin_email,
+                                        target_user_id=int(selected_user.get("id")),
+                                    )
+                                    st.success("Account safely deleted/anonymised and audit log recorded.")
+                                    st.rerun()
+                                except AuthError as exc:
+                                    st.error(str(exc))
+                                except Exception as exc:
+                                    st.error(f"Could not delete account: {exc}")
+
+                        if st.button(
+                            "Review Deletion Details",
+                            type="secondary",
+                            use_container_width=True,
+                            disabled=not delete_confirmed,
+                            key=f"open_delete_dialog_{selected_user.get('id')}",
+                        ):
+                            _confirm_soft_delete_dialog()
+
     with audit_tab:
         st.markdown("### Admin Audit Log")
         st.caption("Recent super-admin account management actions, including account creation, role changes, and access updates.")
@@ -4095,6 +4328,8 @@ elif selected_section == "Account Management":
                 "change_role": "Changed Role",
                 "activate_account": "Activated Account",
                 "deactivate_account": "Deactivated Account",
+                "soft_delete_account": "Account Deleted",
+                "user_self_delete_account": "User Deleted Own Account",
             }.get(value, value.replace("_", " ").title() or "Account Action")
 
         def _audit_action_class(value):
@@ -4105,7 +4340,7 @@ elif selected_section == "Account Management":
                 return "purple"
             if value == "activate_account":
                 return "good"
-            if value == "deactivate_account":
+            if value in {"deactivate_account", "soft_delete_account", "user_self_delete_account"}:
                 return "bad"
             return "muted"
 
@@ -4127,7 +4362,12 @@ elif selected_section == "Account Management":
                 action_raw = row.get("action")
                 action_label = html.escape(_audit_action_label(action_raw))
                 action_class = _audit_action_class(action_raw)
-                details = html.escape(str(row.get("details") or "No additional details."))
+                details_text = str(row.get("details") or "No additional details.")
+                details_text = details_text.replace(
+                    "Soft deleted account.",
+                    "Account safely deactivated and anonymised."
+                )
+                details = html.escape(details_text)
 
                 table_rows.append(
                     f"""
@@ -4298,10 +4538,11 @@ elif selected_section == "Account Management":
                         color: #334155;
                         font-size: 0.82rem;
                         font-weight: 750;
-                        max-width: 420px;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
+                        max-width: 520px;
+                        white-space: normal;
+                        overflow: visible;
+                        text-overflow: unset;
+                        line-height: 1.45;
                     }
                 </style>
             </head>

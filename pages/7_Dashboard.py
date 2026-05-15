@@ -1,6 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import streamlit as st
+
+try:
+    from st_keyup import st_keyup
+except Exception:
+    st_keyup = None
+
 from sqlalchemy import select
 
 from components.ui import render_sidebar, require_profile, require_user
@@ -10,6 +16,12 @@ from services.profile_service import get_profile
 from services.scholarship_service import get_selected_scholarship
 from services.route_plan_service import get_persisted_plan, resolve_required_documents
 from services.document_service import list_evidence_for_profile
+from services.auth_service import (
+    current_user_id,
+    get_current_user,
+    logout_session,
+    self_delete_current_user,
+)
 
 
 st.set_page_config(page_title="Dashboard · VisaForge", page_icon="📊", layout="wide")
@@ -788,6 +800,97 @@ st.markdown(
 )
 
 
+
+
+# -----------------------------
+# Account settings
+# -----------------------------
+with st.expander("Account settings", expanded=False):
+    st.markdown("### Delete my account")
+    st.warning(
+        "This will remove your applicant profile data, eligibility records, selected scholarships, "
+        "route progress, uploaded document records, and disable your login. This action cannot be undone from the app."
+    )
+
+    current_user = get_current_user() or {}
+    current_email = str(current_user.get("email") or "").strip()
+    current_uid = current_user_id()
+
+    st.info(f"Signed in as: {current_email}")
+
+    if st_keyup is not None:
+        delete_email_raw = st_keyup(
+            "Type your email to confirm",
+            placeholder=current_email,
+            key="dashboard_self_delete_email_live",
+            debounce=250,
+        )
+    else:
+        delete_email_raw = st.text_input(
+            "Type your email to confirm",
+            placeholder=current_email,
+            key="dashboard_self_delete_email",
+        )
+
+    delete_email_confirmed = (
+        (delete_email_raw or "").strip().lower() == current_email.lower()
+        and bool(current_email)
+    )
+
+    if delete_email_confirmed:
+        st.success("Email confirmed. You can now review the final deletion confirmation.")
+    else:
+        st.caption("The deletion review button unlocks only after your exact email is entered.")
+
+    @st.dialog("Confirm account deletion")
+    def _confirm_user_self_delete_dialog():
+        st.markdown("### Final account deletion confirmation")
+        st.error(
+            "This will remove your applicant workflow data from the MVP database "
+            "and deactivate your login."
+        )
+
+        st.markdown(
+            f"""
+            **Account email:** {current_email}
+
+            The system will remove applicant-owned records where safely identifiable, anonymise your account,
+            disable sign-in, and keep an audit record for accountability.
+            """
+        )
+
+        final_confirm = st.checkbox(
+            "I understand this action cannot be undone from the application.",
+            key="dashboard_final_self_delete_confirm",
+        )
+
+        if st.button(
+            "Confirm and Delete My Account",
+            type="primary",
+            use_container_width=True,
+            disabled=not final_confirm,
+            key="dashboard_final_self_delete_button",
+        ):
+            try:
+                self_delete_current_user(current_uid)
+                logout_session()
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    pass
+                st.success("Your account has been deleted/anonymised.")
+                st.switch_page("pages/0_Login.py")
+            except Exception as exc:
+                st.error(f"Could not delete account: {exc}")
+
+    if st.button(
+        "Review Account Deletion",
+        type="secondary",
+        use_container_width=True,
+        disabled=not delete_email_confirmed,
+        key="dashboard_open_self_delete_dialog",
+    ):
+        _confirm_user_self_delete_dialog()
 
 
 # -----------------------------
