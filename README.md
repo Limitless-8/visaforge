@@ -1,280 +1,710 @@
 # ✈️ VisaForge
 
-> **AI-assisted immigration & scholarship guidance for students** targeting the UK, Canada, and Germany.
+> **Deterministic study-abroad workflow guidance with AI-assisted explanations.**
 
-VisaForge combines a **deterministic rule engine** for visa eligibility with **grounded AI guidance** and **live scholarship discovery** from curated, credible sources. Built as a serious academic MVP — modular, explainable, and demo-ready.
+VisaForge is a Streamlit-based academic MVP that helps students prepare for study abroad, scholarship applications, and visa-related documentation. It combines deterministic eligibility evaluation, scholarship matching, route planning, OCR-supported document review, trusted source management, admin monitoring, and explanation-only AI guidance.
 
----
+The core principle is simple:
 
-## 🏗️ Architecture at a glance
+> **Deterministic engines make decisions. AI explains only.**
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Streamlit UI layer                         │
-│   app.py + pages/   (landing, profile, eligibility, route,      │
-│                      scholarships, docs, AI, dashboard, admin)  │
-├─────────────────────────────────────────────────────────────────┤
-│                       Services layer                            │
-│   profile · eligibility · route · document · policy             │
-│   scholarship · ingestion · ai                                  │
-├────────────────┬────────────────┬─────────────────┬─────────────┤
-│   LLM layer    │ Ingestion layer│  Data layer     │  Config     │
-│  (factory →    │  (factory →    │  SQLAlchemy ORM │  settings   │
-│   Groq ✓       │   Firecrawl ✓  │  + Pydantic     │  + secrets  │
-│   OpenAI ·)    │   TinyFish ·   │  + JSON seeds   │             │
-│                │   Playwright · │  + SQLite       │             │
-│                │   Crawlee ·)   │                 │             │
-└────────────────┴────────────────┴─────────────────┴─────────────┘
-                       ✓ = active   · = placeholder
-```
-
-**Key design principles**
-
-1. **Deterministic first.** Rule-based engine decides eligibility. AI only *explains*.
-2. **Provider abstraction.** LLM and ingestion vendors are swappable via config.
-3. **Grounded AI.** LLM context packet is built from your deterministic outputs; the system prompt forbids hallucination and overriding rules.
-4. **Never fabricate.** Missing scholarship deadlines stay `None`. Unparseable pages become attributed fallback entries, not made-up content.
-5. **Graceful degradation.** Firecrawl outage? Falls back to polite HTTP + BeautifulSoup. LLM key missing? Deterministic pages still work.
-6. **Migration ready.** SQLite↔Postgres via `DATABASE_URL`. Streamlit→FastAPI by lifting `services/`. Groq→OpenAI by editing one line.
+VisaForge is a guidance-support platform. It is **not legal or immigration advice**. Applicants should always verify important information through official government, university, or scholarship sources.
 
 ---
 
-## 📁 Project structure
+## 🌐 Live Demo
 
+**Live App:**  
+https://visaforge.streamlit.app/
+
+**Source Code:**  
+https://github.com/Limitless-8/visaforge
+
+---
+
+## ✅ Final MVP Stack
+
+The submitted MVP is implemented using:
+
+- **Streamlit** — applicant UI, admin dashboard, and super admin interface
+- **streamlit-keyup** — live search behaviour in admin tables
+- **Python service modules** — application logic and deterministic engines
+- **SQLite** — MVP database persistence
+- **SQLAlchemy** — ORM and structured database access
+- **bcrypt** — password hashing
+- **Role-Based Access Control** — applicant, admin, and super admin permissions
+- **Tesseract OCR** — OCR text extraction
+- **PyMuPDF** — PDF processing
+- **Groq** — LLM provider for explanation-only AI guidance
+- **GitHub** — version control and deployment source
+- **Streamlit Cloud** — hosted MVP deployment
+
+Future production options include:
+
+- FastAPI API layer
+- PostgreSQL database
+- pgvector / vector retrieval
+- Alembic migrations
+- object storage for documents
+- token/JWT-based API authentication
+
+These future tools are **not the active MVP runtime**.
+
+---
+
+## 🧠 Key Design Principles
+
+1. **Deterministic first**  
+   Eligibility, scholarship fit, route planning, workflow progression, document status, and account-management decisions are handled by deterministic logic.
+
+2. **AI explains only**  
+   AI guidance is used to explain deterministic outputs and provide contextual support. It cannot override system decisions.
+
+3. **Transparent workflows**  
+   Applicants move through a structured journey: profile → eligibility → scholarship selection → route plan → documents → AI guidance.
+
+4. **Role-based governance**  
+   The system separates applicant, admin, and super admin permissions.
+
+5. **Auditability**  
+   Privileged admin actions are recorded in audit logs.
+
+6. **Trusted source awareness**  
+   The admin dashboard supports trusted source management for scholarship and policy guidance.
+
+7. **Safe account deletion**  
+   User and admin account deletion uses anonymisation/deactivation safeguards rather than unsafe raw deletion.
+
+---
+
+## 🏗️ Architecture at a Glance
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Streamlit MVP Layer                         │
+│  app.py + pages/                                                    │
+│  Landing · Login · Register · Profile · Eligibility · Scholarships  │
+│  Route Plan · Documents · AI Assistant · Dashboard · Admin           │
+├─────────────────────────────────────────────────────────────────────┤
+│                         Python Service Layer                        │
+│  auth · profile · eligibility · scholarship · route · documents      │
+│  OCR · AI guidance · trusted sources · notifications · admin audit   │
+├──────────────────────────┬──────────────────────────────────────────┤
+│        AI Guidance        │              Data Layer                  │
+│        Groq LLM           │              SQLite MVP DB               │
+│        Explanations only  │              SQLAlchemy ORM              │
+├──────────────────────────┴──────────────────────────────────────────┤
+│                         Deployment Layer                            │
+│                 GitHub → Streamlit Cloud                            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Current MVP
+
+- Streamlit app calls Python service modules directly.
+- SQLite stores MVP data through SQLAlchemy.
+- Groq provides explanation-only AI responses.
+- Tesseract OCR and PyMuPDF support document processing.
+- Super admin controls manage privileged account actions.
+
+### Future Production Path
+
+VisaForge is structured so that the service layer can later be migrated to:
+
+- FastAPI backend API
+- PostgreSQL production database
+- pgvector/vector retrieval
+- Alembic migrations
+- object storage for uploaded documents
+
+---
+
+## 📁 Project Structure
+
+```text
 visaforge/
-├── app.py                     # Landing page
+├── app.py
 ├── requirements.txt
+├── packages.txt
 ├── README.md
 ├── .env.example
 ├── .streamlit/
-│   ├── config.toml            # Theme
+│   ├── config.toml
 │   └── secrets.toml.example
 ├── config/
-│   └── settings.py            # Single source of truth for config
+│   └── settings.py
 ├── db/
-│   ├── database.py            # Engine + session_scope()
-│   └── init_db.py             # Schema + seed loader (idempotent)
+│   ├── database.py
+│   └── init_db.py
 ├── models/
-│   ├── orm.py                 # SQLAlchemy 2.0 entities
-│   └── schemas.py             # Pydantic DTOs
-├── services/                  # Orchestration layer — UI never calls ORM directly
+│   ├── orm.py
+│   ├── schemas.py
+│   └── user.py
+├── services/
+│   ├── auth_service.py
 │   ├── profile_service.py
-│   ├── eligibility_service.py # ★ Deterministic engine
-│   ├── route_service.py       # ★ Template-driven workflows
-│   ├── document_service.py
-│   ├── policy_service.py
+│   ├── eligibility_service.py
 │   ├── scholarship_service.py
-│   ├── ingestion_service.py   # ★ Orchestrates provider → parser → DB → log
-│   ├── ai_service.py          # ★ Grounded context builder
-│   ├── document_extraction_service.py  # Extension point
-│   └── ocr_service.py         # Placeholder
+│   ├── route_plan_service.py
+│   ├── document_service.py
+│   ├── document_extraction_service.py
+│   ├── document_verification_service.py
+│   ├── ai_service.py
+│   ├── notification_service.py
+│   ├── source_registry_service.py
+│   ├── ingestion_service.py
+│   └── journey_service.py
 ├── llm/
-│   ├── base.py                # LLMProvider interface
-│   ├── groq_provider.py       # ★ Active
-│   ├── openai_provider.py     # Placeholder (scaffolded)
-│   └── factory.py
+│   ├── __init__.py
+│   ├── base.py
+│   ├── factory.py
+│   ├── groq_provider.py
+│   └── openai_provider.py
 ├── ingestion/
-│   ├── base.py                # IngestionProvider interface
-│   ├── firecrawl_provider.py  # ★ Active (+ HTTP fallback)
-│   ├── tinyfish_provider.py   # Placeholder
-│   ├── playwright_provider.py # Placeholder
-│   ├── crawlee_provider.py    # Placeholder
-│   ├── parser.py              # Scholarship extraction heuristics
-│   └── factory.py
+│   ├── __init__.py
+│   ├── base.py
+│   ├── factory.py
+│   ├── firecrawl_provider.py
+│   ├── parser.py
+│   ├── crawlee_provider.py
+│   ├── playwright_provider.py
+│   └── tinyfish_provider.py
 ├── components/
-│   ├── ui.py                  # Shared UI helpers (sidebar, disclaimer, …)
-│   └── badges.py              # Colored status pills
+│   ├── ui.py
+│   └── badges.py
 ├── utils/
+│   ├── helpers.py
 │   ├── logger.py
-│   └── helpers.py             # iso_now, truncate, deadline parser, …
+│   ├── reference_data.py
+│   └── text_cleaning.py
 ├── data/
+│   ├── visaforge.db
 │   └── seeds/
-│       ├── visa_rules.json           # ★ Deterministic rule definitions
-│       ├── route_templates.json      # ★ Country workflows
+│       ├── visa_rules.json
+│       ├── route_templates.json
 │       ├── document_checklists.json
-│       ├── source_registry.json      # ★ Curated ingestion sources
-│       └── seed_scholarships.json    # Offline-safe demo data
+│       ├── source_registry.json
+│       ├── scholarship_sources.json
+│       └── seed_scholarships.json
 └── pages/
-    ├── 1_👤_Profile.py
-    ├── 2_✅_Eligibility.py
-    ├── 3_🗺️_Route_Plan.py
-    ├── 4_🎓_Scholarships.py
-    ├── 5_📄_Documents.py
-    ├── 6_🤖_AI_Assistant.py
-    ├── 7_📊_Dashboard.py
-    └── 8_⚙️_Admin.py
+    ├── 0_Login.py
+    ├── 0_Register.py
+    ├── 1_Profile.py
+    ├── 2_Eligibility.py
+    ├── 3_Route_Plan.py
+    ├── 4_Scholarships.py
+    ├── 5_Documents.py
+    ├── 6_AI_Assistant.py
+    ├── 7_Dashboard.py
+    ├── 8_Admin.py
+    └── 9_Reset_Password.py
 ```
 
 ---
 
-## 🚀 Local setup
+## 🚀 Local Setup
 
-### 1. Clone & create a virtualenv
+### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url> visaforge
+git clone https://github.com/Limitless-8/visaforge.git
 cd visaforge
+```
+
+### 2. Create and Activate Virtual Environment
+
+```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+```
+
+Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+### 3. Install Python Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure secrets
+### 4. Configure Environment Variables
 
-Copy `.env.example` to `.env` and fill in keys:
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-Required for full functionality:
+Add your API keys if required:
 
-- `GROQ_API_KEY` — get one free at https://console.groq.com/keys
-- `FIRECRAWL_API_KEY` — get one at https://firecrawl.dev (optional: the app falls back to polite HTTP fetching if missing)
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_groq_key
+GROQ_MODEL=llama-3.3-70b-versatile
 
-### 3. Run
+DATABASE_URL=sqlite:///data/visaforge.db
+APP_ENV=development
+```
+
+### 5. Run the App
 
 ```bash
 streamlit run app.py
 ```
 
-The first run auto-creates `data/visaforge.db` (SQLite) and seeds the source registry and demo scholarships.
-
-### 4. First-use flow
-
-1. Go to **👤 Profile**, create a profile.
-2. **✅ Eligibility** — run the deterministic check.
-3. **🗺️ Route Plan** — see your workflow; steps tied to failing rules are auto-marked `pending_evidence`.
-4. **🎓 Scholarships** — browse seeded entries; bookmark some.
-5. **⚙️ Admin → 🌐 Sources → Refresh ALL** — fetch live scholarships (requires Firecrawl key, or falls back to HTTP).
-6. **📄 Documents** — track your checklist.
-7. **🤖 AI Assistant** — ask grounded questions.
-8. **📊 Dashboard** — single-pane overview.
+The app will initialise the SQLite database and seed required demo/source data on first run.
 
 ---
 
-## ☁️ Streamlit Cloud deployment
+## ☁️ Streamlit Cloud Deployment
 
-1. Push the repo to GitHub.
-2. On [share.streamlit.io](https://share.streamlit.io), create a new app pointing to `app.py`.
-3. In **Settings → Secrets**, paste the content of `.streamlit/secrets.toml.example` and fill in real keys:
+VisaForge is deployed through **Streamlit Cloud** from the GitHub repository.
 
-   ```toml
-   LLM_PROVIDER = "groq"
-   GROQ_API_KEY = "gsk_…"
-   GROQ_MODEL = "llama-3.3-70b-versatile"
+### Streamlit Cloud setup
 
-   INGESTION_PROVIDER = "firecrawl"
-   FIRECRAWL_API_KEY = "fc_…"
+1. Push the repository to GitHub.
+2. Open Streamlit Cloud.
+3. Create a new app.
+4. Select the GitHub repository.
+5. Set the main file as:
 
-   DATABASE_URL = "sqlite:///data/visaforge.db"
-   APP_ENV = "production"
-   ```
-
-4. Deploy. The app bootstraps its DB on first launch.
-
-> **Note on SQLite on Streamlit Cloud:** the filesystem is ephemeral — user profiles persist only within a single container lifetime. For production, set `DATABASE_URL` to a Postgres URL (see "Future migrations" below).
-
----
-
-## 🧠 How the deterministic engine works
-
-Rules live in `data/seeds/visa_rules.json` and have this shape:
-
-```json
-{
-  "id": "uk_proof_of_funds",
-  "description": "Proof of funds covering course fees and living costs.",
-  "field": "has_proof_of_funds",
-  "check": "is_true",
-  "weight": 1.0,
-  "evidence_required": ["Bank statements showing required maintenance funds"]
-}
+```text
+app.py
 ```
 
-Supported `check` primitives: `non_empty_date`, `is_true`, `numeric_min`, `numeric_min_or_na`, `non_empty_string`.
+6. Add required secrets in Streamlit Cloud settings.
 
-Each evaluation produces an `EligibilityReport` with:
-- `status` — `eligible` / `partial` / `not_eligible`
-- `confidence` — weighted score
-- `trace` — per-rule `RuleEvaluation` with outcome, detail, and required evidence
-- `missing_evidence` — deduplicated list
+Example secrets:
 
-The LLM in `services/ai_service.py` receives this report as **authoritative grounding context** and is explicitly instructed not to contradict it.
+```toml
+LLM_PROVIDER = "groq"
+GROQ_API_KEY = "your_groq_key"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
----
+DATABASE_URL = "sqlite:///data/visaforge.db"
+APP_ENV = "production"
+```
 
-## 🌐 Live ingestion
+### System packages
 
-`ingestion/firecrawl_provider.py` is the active provider:
+`packages.txt` contains system-level dependencies such as Tesseract OCR:
 
-1. Calls Firecrawl's `scrape_url` for markdown output.
-2. If Firecrawl fails or is unconfigured → falls back to `requests` + BeautifulSoup with a polite User-Agent.
-3. `ingestion/parser.py` extracts scholarship-like entries from the text:
-   - Markdown-link heuristic (anchor contains *scholarship/bursary/fellowship/grant/award*)
-   - Heading heuristic
-   - Fallback: one attributed page-level entry
-4. `services/ingestion_service.py` upserts entries, updates source timestamps, and writes a `FetchLog`.
+```text
+tesseract-ocr
+tesseract-ocr-eng
+poppler-utils
+```
 
-### Adding a source
-
-Either via the **Admin → Sources → ➕ Add** form, or by editing `data/seeds/source_registry.json` and restarting (the seed loader is idempotent).
-
-### Polite crawling
-
-- Distinct User-Agent: `VisaForgeBot/0.1 (academic research prototype; …)`.
-- HTTP timeout: 20s.
-- No concurrent floods — refreshes are sequential.
-- **Always** respect each target's `robots.txt` and terms of use before enabling a source.
+Python packages such as `streamlit-keyup` belong in `requirements.txt`, not `packages.txt`.
 
 ---
 
-## 🔁 Future migrations
+## 👤 Applicant Features
 
-| From (MVP)              | To (production)                   | How                                                                              |
-| ----------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| Streamlit               | FastAPI + separate frontend       | Services are framework-free. Wrap `services/*` in FastAPI routers.               |
-| SQLite                  | PostgreSQL                        | Change `DATABASE_URL`, `pip install psycopg2-binary`, run Alembic migrations.    |
-| Groq                    | OpenAI                            | Uncomment scaffold in `llm/openai_provider.py`, set `LLM_PROVIDER=openai`.       |
-| No Docker               | Docker + Compose                  | Add `Dockerfile` with `streamlit run app.py`; volumes for `/data`.               |
-| Firecrawl               | TinyFish / Playwright / Crawlee   | Implement the provider scaffold; set `INGESTION_PROVIDER=…`.                     |
-| Static rule JSON        | Dynamic policy ingestion          | Persist rules to DB; admin UI for editing; versioning.                           |
-| In-session file uploads | Object store + OCR                | Implement `services/ocr_service.py` and `document_extraction_service.py`.        |
+Applicants can:
 
-No code outside the relevant module needs to change for any of these swaps.
-
----
-
-## 🛡️ Responsible design
-
-- **Disclaimer** shown on every page: VisaForge is guidance support, **not legal advice**.
-- **No hallucinated deadlines.** The deadline parser in `utils/helpers.py` only returns dates that literally appear in source text.
-- **Source attribution** stored on every scholarship record (URL, source name, credibility level, fetch timestamp).
-- **Confidence scores** exposed on the eligibility verdict — users see when the system is not sure.
-- **Redacted secrets** in the admin Config tab (never expose raw keys).
-- **Minimal PII.** Only what's needed for the eligibility engine; no passwords, no IDs stored.
+- Register and log in
+- Create and update their study-abroad profile
+- Add passport, academic, destination, language, and finance details
+- Run deterministic eligibility evaluation
+- View eligibility results, risk flags, and readiness indicators
+- Browse scholarship matches
+- View scholarship fit scores and criteria
+- Select a scholarship
+- Generate a route plan
+- Track workflow progress
+- Upload documents
+- Review OCR extraction results
+- Ask the AI assistant for explanations
+- Reset journey progress
+- Delete/anonymise their own account after confirmation
 
 ---
 
-## 📜 License & attribution
+## ⚙️ Admin Features
 
-- Official source content linked to and attributed at all times; VisaForge does not redistribute copyrighted content.
-- Respects each source's `robots.txt` and terms of use — disable sources that disallow automated access.
+Admins can:
+
+- View applicant analytics
+- Search applicant progress records
+- Review scholarship records
+- Approve/reject scholarship entries
+- Monitor official sources
+- Manage trusted sources
+- View scholarship library records
+- Send applicant notifications
+- Review notification delivery reports
+- Monitor logs
+
+---
+
+## 👑 Super Admin Features
+
+Super admins can:
+
+- Access all normal admin features
+- Create admin accounts
+- Create or promote super admin accounts only when permitted by root super admin safeguards
+- Change user roles
+- Activate or deactivate accounts
+- Delete/anonymise permitted accounts
+- View account-management audit logs
+- Review privileged actions
+
+### Root Super Admin Protection
+
+The root super admin account is protected from being:
+
+- demoted
+- deactivated
+- deleted
+
+by another account.
+
+This prevents accidental or malicious administrative lockout.
+
+---
+
+## 🛡️ Account Deletion and Anonymisation
+
+VisaForge supports safe deletion/anonymisation.
+
+### Applicant self-delete
+
+Applicants can delete/anonymise their own account from the dashboard after:
+
+1. entering their exact email,
+2. reviewing a confirmation dialog,
+3. confirming the action.
+
+The system removes or anonymises applicant-owned records where safely identifiable, anonymises the user account, disables sign-in, and records an audit event.
+
+### Super admin account deletion
+
+Super admins can safely delete/anonymise permitted accounts through Account Management.
+
+The system:
+
+- disables sign-in,
+- anonymises account identity,
+- resets role to user,
+- replaces the password hash,
+- records the action in admin audit logs,
+- prevents deletion of the protected root super admin account.
+
+Deleted accounts are hidden by default in account management, with an option to include them for accountability.
+
+---
+
+## 🧮 Deterministic Eligibility Engine
+
+Eligibility rules are stored as structured definitions and evaluated deterministically.
+
+The engine uses applicant profile data such as:
+
+- nationality
+- destination country
+- academic level
+- English language readiness
+- financial readiness
+- document availability
+
+Outputs include:
+
+- eligibility/readiness status
+- confidence/readiness score
+- risk flags
+- missing requirements
+- improvement suggestions
+
+The same input produces the same output.
+
+The AI assistant receives deterministic results as context, but it cannot change or override them.
+
+---
+
+## 🎓 Scholarship Matching
+
+The scholarship matching module compares applicant profiles with scholarship records and criteria.
+
+It produces:
+
+- fit score
+- matched criteria
+- missing criteria
+- unknown criteria
+- improvement guidance
+- selected scholarship state
+
+Applicants must select a scholarship before generating a route plan so that the workflow reflects the chosen opportunity.
+
+---
+
+## 🗺️ Route Planning and Workflow
+
+VisaForge generates route plans based on:
+
+- applicant profile
+- eligibility result
+- selected scholarship
+- destination country
+- preparation requirements
+
+The workflow includes:
+
+- scholarship preparation
+- Pakistan-side documentation
+- visa preparation
+- final submission tasks
+
+Workflow steps can be:
+
+- locked
+- available
+- pending
+- completed
+- requiring document evidence
+- requiring manual review
+
+This helps applicants follow a structured preparation path instead of treating the process as a random checklist.
+
+---
+
+## 📄 OCR and Document Processing
+
+VisaForge supports document upload and OCR-assisted review.
+
+Document processing uses:
+
+- **PyMuPDF** for PDF processing
+- **Tesseract OCR** for text extraction
+
+The system can show:
+
+- extracted text previews
+- extracted fields
+- warnings
+- OCR quality issues
+- manual review prompts
+- reprocessing options
+
+OCR results are not treated as automatically correct. Users are shown warnings and review controls where extraction is uncertain.
+
+---
+
+## 🤖 AI Guidance
+
+VisaForge uses Groq for AI-assisted explanations.
+
+The AI assistant can explain:
+
+- eligibility results
+- risk flags
+- scholarship fit
+- route plan steps
+- document requirements
+- next actions
+
+The AI assistant cannot:
+
+- decide eligibility
+- calculate scholarship scores
+- generate route decisions independently
+- unlock workflow steps
+- verify documents
+- change roles
+- delete accounts
+
+> **AI explains only. Deterministic modules decide.**
+
+---
+
+## 🌐 Trusted Source Management
+
+The admin dashboard includes a trusted source registry.
+
+Trusted sources support:
+
+- scholarship source management
+- official-source tracking
+- trusted context for guidance
+- source refresh monitoring
+- admin review of curated sources
+
+Examples include:
+
+- UK Government
+- Government of Canada / EduCanada
+- DAAD Germany
+- Chevening
+- British Council
+- University and scholarship portals
+
+The MVP uses trusted-source guidance at application level. A full vector-based RAG pipeline is a future production enhancement.
+
+---
+
+## 📢 Notifications and Delivery Reports
+
+Admins can send applicant notifications and reminders.
+
+Delivery reporting includes:
+
+- targeted recipients
+- sent recipients
+- failed recipients
+- skipped recipients
+- recipient-level status
+- CSV download of delivery report
+
+This supports administrative visibility over communication outcomes.
+
+---
+
+## 🔐 Security and Governance
+
+VisaForge includes:
+
+- bcrypt password hashing
+- session-based login handling
+- role-based access control
+- protected navigation
+- applicant/admin/super admin separation
+- root super admin protection
+- root super admin cannot be demoted, deactivated, or deleted through the application UI
+- account deletion/anonymisation safeguards
+- admin audit logs
+- explanation-only AI constraints
+- disclaimers on guidance-only use
+
+The app is an academic MVP, not a production immigration advisory system.
+
+---
+
+## 📊 Testing Summary
+
+Core tested areas include:
+
+- authentication
+- invalid login handling
+- deterministic eligibility
+- scholarship matching
+- locked workflow steps
+- OCR processing
+- poor-quality OCR warnings
+- AI guidance
+- unsupported file validation
+- protected page access
+- frontend/dashboard layout
+- end-to-end applicant workflow
+- notification delivery reporting
+- super admin account creation
+- root super admin protection
+- user account deletion/anonymisation
+
+---
+
+## 🔁 Future Work
+
+Future improvements could include:
+
+| MVP Area | Future Production Direction |
+|---|---|
+| Streamlit-only MVP | FastAPI backend + separate frontend |
+| SQLite | PostgreSQL production database |
+| Streamlit session auth | Token/JWT-based API authentication |
+| Local/document metadata storage | Object storage for uploaded documents |
+| Trusted-source guidance | Full vector-based RAG with pgvector |
+| Manual source monitoring | Automated source versioning and policy monitoring |
+| Basic OCR | Layout-aware OCR and structured extraction |
+| Web-only interface | Mobile-friendly or dedicated mobile app |
+| English-only focus | Urdu / Roman Urdu support |
+| Manual testing | Larger-scale user testing |
 
 ---
 
 ## 🧪 Troubleshooting
 
-| Symptom                                                      | Fix                                                                             |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `AI provider is not configured`                              | Set `GROQ_API_KEY` in `.env` or Streamlit secrets.                             |
-| Scholarships page shows only seed entries                    | Go to **Admin → Sources → Refresh ALL**. Check fetch logs for errors.          |
-| `groq` package missing                                       | `pip install -r requirements.txt`.                                             |
-| Firecrawl errors                                             | App auto-falls back to HTTP. Check the **Fetch logs** tab for details.         |
-| Need to edit rules                                           | Edit `data/seeds/visa_rules.json`, then **Admin → Config → Reload visa rules**. |
-| DB reset needed                                              | Delete `data/visaforge.db` and restart.                                         |
+| Issue | Fix |
+|---|---|
+| App does not start | Run `pip install -r requirements.txt` and check Python version. |
+| Tesseract not found | Install system packages from `packages.txt` or configure Tesseract path. |
+| AI assistant unavailable | Check `GROQ_API_KEY` and `LLM_PROVIDER` settings. |
+| Database missing | Restart app; `db/init_db.py` initializes the SQLite database. |
+| Admin account missing | Check `ADMIN_EMAIL` and `ADMIN_PASSWORD` secrets/environment variables. |
+| OCR is weak | Upload clearer scans or text-based PDFs. |
+| Streamlit Cloud deployment fails | Check `requirements.txt`, `packages.txt`, and secrets. |
+| Deleted account is visible | Toggle “Include deleted accounts” in Account Management. Deleted accounts are hidden by default. |
 
 ---
 
-Built with ❤️ as a research MVP. PRs and supervisor feedback welcome.
+## ⚖️ Responsible Use
+
+VisaForge is a final year academic project and MVP demonstration.
+
+It provides:
+
+- structured guidance,
+- eligibility preparation support,
+- scholarship matching support,
+- document review support,
+- explanation-only AI guidance.
+
+It does **not** provide:
+
+- legal advice,
+- official immigration decisions,
+- guaranteed visa outcomes,
+- guaranteed scholarship outcomes.
+
+Always verify important information through official government, institutional, or scholarship sources.
+
+---
+
+## 📜 License and Attribution
+
+VisaForge links to and attributes official source content where applicable. It does not claim ownership of government, university, or scholarship source material.
+
+Automated source access should respect each website’s terms of use and robots.txt policies.
+
+---
+
+## 👨‍🎓 Academic Context
+
+VisaForge was built as a final year research project MVP for COM6001 Research Project.
+
+Project title:
+
+**VisaForge: An Explainable Deterministic Workflow Orchestration Platform for AI-Assisted Immigration Guidance**
+
+Built by **Shehryar Khan** as an academic software engineering artefact.
+
+---
+
+## ✅ Current Status
+
+VisaForge is a working MVP with:
+
+- applicant workflow
+- deterministic eligibility
+- scholarship matching
+- route planning
+- document upload/OCR
+- AI explanations
+- admin dashboard
+- trusted source management
+- notification delivery reports
+- logs
+- super admin account management
+- account deletion/anonymisation safeguards
+- Streamlit Cloud deployment
+
+The project is demo-ready and suitable for further development into a production architecture.
